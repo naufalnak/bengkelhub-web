@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TokenSyncProvider } from "@/components/providers/TokenSyncProvider";
-import { QueryProvider } from "../components/providers/QueryProvider";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BengkelHub",
-  description: "Platform booking bengkel online",
+  title: {
+    default: "BengkelHub",
+    template: "%s | BengkelHub",
+  },
+  description: "Platform booking bengkel online terpercaya",
+  keywords: ["bengkel", "servis", "booking", "otomotif"],
 };
 
 export default function RootLayout({
@@ -29,6 +34,7 @@ export default function RootLayout({
         <QueryProvider>
           <TokenSyncProvider />
           {children}
+          <ToastProvider />
         </QueryProvider>
       </body>
     </html>
