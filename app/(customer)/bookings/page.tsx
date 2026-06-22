@@ -43,6 +43,11 @@ function BookingCard({
           <Wrench className="w-4 h-4 text-gray-400" />
         </div>
         <div className="flex-1 min-w-0">
+          {order.workshop && (
+            <p className="text-xs font-semibold text-[var(--navy)] truncate">
+              {order.workshop.name}
+            </p>
+          )}
           <p className="text-sm font-bold text-gray-900 truncate">
             {order.vehicle_type}
           </p>

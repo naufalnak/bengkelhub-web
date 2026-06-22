@@ -78,7 +78,7 @@ export function Navbar() {
                 <Link
                   href="/register"
                   className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-sm">
-                  Daftar Bengkel
+                  Daftar
                 </Link>
               </>
             ) : role() === "operator" ? (
@@ -168,7 +168,7 @@ export function Navbar() {
                   href="/register"
                   onClick={() => setMenuOpen(false)}
                   className="block px-3 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition text-center">
-                  Daftar Bengkel
+                  Daftar
                 </Link>
               </>
             ) : (
