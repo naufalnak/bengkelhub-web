@@ -1,71 +1,58 @@
 import { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface StatsCardProps {
   label: string;
   value: string | number;
   icon: LucideIcon;
-  color?: "red" | "blue" | "green" | "yellow";
+  color?: "red" | "blue" | "green" | "amber";
   sub?: string;
+  href?: string;
 }
 
 const colorMap = {
-  red: {
-    bg: "rgba(220,38,38,0.10)",
-    border: "rgba(220,38,38,0.20)",
-    icon: "rgba(220,38,38,0.80)",
-    glow: "rgba(220,38,38,0.08)",
-  },
-  blue: {
-    bg: "rgba(59,130,246,0.10)",
-    border: "rgba(59,130,246,0.20)",
-    icon: "rgba(59,130,246,0.80)",
-    glow: "rgba(59,130,246,0.08)",
-  },
-  green: {
-    bg: "rgba(34,197,94,0.10)",
-    border: "rgba(34,197,94,0.20)",
-    icon: "rgba(34,197,94,0.80)",
-    glow: "rgba(34,197,94,0.08)",
-  },
-  yellow: {
-    bg: "rgba(234,179,8,0.10)",
-    border: "rgba(234,179,8,0.20)",
-    icon: "rgba(234,179,8,0.80)",
-    glow: "rgba(234,179,8,0.08)",
-  },
+  red: { icon: "bg-red-50 text-red-600", ring: "hover:ring-red-100" },
+  blue: { icon: "bg-blue-50 text-blue-600", ring: "hover:ring-blue-100" },
+  green: { icon: "bg-green-50 text-green-600", ring: "hover:ring-green-100" },
+  amber: { icon: "bg-amber-50 text-amber-600", ring: "hover:ring-amber-100" },
 };
 
 export function StatsCard({
   label,
   value,
   icon: Icon,
-  color = "red",
+  color = "blue",
   sub,
+  href,
 }: StatsCardProps) {
   const c = colorMap[color];
 
-  return (
+  const inner = (
     <div
-      className="rounded-2xl p-5 flex items-center gap-4"
-      style={{
-        background: "#0b1628",
-        border: `1px solid rgba(255,255,255,0.07)`,
-        boxShadow: `0 0 40px ${c.glow}`,
-      }}>
+      className={cn(
+        "bg-white rounded-2xl p-5 border border-gray-200 flex items-center gap-4 transition",
+        href && "hover:shadow-md hover:ring-2 ring-transparent " + c.ring,
+      )}>
       <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: c.bg, border: `1px solid ${c.border}` }}>
-        <Icon className="w-5 h-5" style={{ color: c.icon }} />
+        className={cn(
+          "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+          c.icon,
+        )}>
+        <Icon className="w-5 h-5" />
       </div>
       <div className="min-w-0">
-        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">
+        <p className="text-gray-500 text-xs font-medium uppercase tracking-wider truncate">
           {label}
         </p>
-        <p className="text-white text-2xl font-bold tracking-tight mt-0.5">
+        <p className="text-[#0B1C3D] text-2xl font-bold tracking-tight mt-0.5">
           {value}
         </p>
-        {sub && <p className="text-slate-500 text-xs mt-0.5">{sub}</p>}
+        {sub && <p className="text-gray-400 text-xs mt-0.5">{sub}</p>}
       </div>
     </div>
   );
+
+  if (href) return <Link href={href}>{inner}</Link>;
+  return inner;
 }

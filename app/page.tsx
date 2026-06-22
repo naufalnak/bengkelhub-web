@@ -9,13 +9,10 @@ export default function RootPage() {
   const { isAuthenticated, role } = useAuthStore();
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      // Landing page / browse workshops (public)
-      router.replace("/workshops");
-    } else if (role() === "operator") {
+    if (isAuthenticated && role() === "operator") {
       router.replace("/operator/dashboard");
     } else {
-      router.replace("/workshops");
+      router.replace("/home");
     }
   }, [isAuthenticated, role, router]);
 

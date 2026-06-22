@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Optimasi image jika nanti pakai next/image
   images: {
-    remotePatterns: [],
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
 
   // Header keamanan

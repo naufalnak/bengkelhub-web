@@ -3,42 +3,26 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Wrench,
   LayoutDashboard,
   Store,
   CalendarClock,
   ClipboardList,
   LogOut,
   ChevronRight,
+  Wrench,
   X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 
 const NAV_ITEMS = [
-  {
-    href: "/operator/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    href: "/operator/workshops",
-    label: "Workshop",
-    icon: Store,
-  },
-  {
-    href: "/operator/slots",
-    label: "Jadwal & Slot",
-    icon: CalendarClock,
-  },
-  {
-    href: "/operator/orders",
-    label: "Pesanan",
-    icon: ClipboardList,
-  },
+  { href: "/operator/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/operator/workshops", label: "Workshop", icon: Store },
+  { href: "/operator/slots", label: "Jadwal & Slot", icon: CalendarClock },
+  { href: "/operator/orders", label: "Pesanan", icon: ClipboardList },
 ];
 
 interface SidebarProps {
-  /** Mobile: controlled open state */
   open?: boolean;
   onClose?: () => void;
 }
@@ -54,57 +38,48 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   };
 
   const content = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[var(--navy)]">
       {/* Logo */}
-      <div
-        className="flex items-center justify-between px-5 h-16 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <Link href="/operator/dashboard" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center shadow shadow-red-900/40">
+      <div className="h-16 flex items-center justify-between gap-3 px-5 border-b border-white/10 flex-shrink-0">
+        <Link href="/operator/dashboard" className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-900/30">
             <Wrench className="w-4 h-4 text-white" />
           </div>
-          <span className="text-white font-bold text-base tracking-tight">
-            Bengkel<span className="text-red-500">Hub</span>
-          </span>
+          <div>
+            <span className="font-bold text-white text-sm block leading-none">
+              BengkelHub
+            </span>
+            <span className="text-blue-400 text-xs leading-none">Operator</span>
+          </div>
         </Link>
-
-        {/* Mobile close button */}
         {onClose && (
           <button
             onClick={onClose}
-            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/08 transition">
+            className="md:hidden p-1.5 rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition">
             <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
       {/* User info */}
-      <div
-        className="mx-3 mt-4 mb-2 px-3 py-3 rounded-xl"
-        style={{
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-red-600/20 border border-red-600/30 flex items-center justify-center flex-shrink-0">
-            <span className="text-red-400 font-bold text-sm">
-              {user?.name?.charAt(0).toUpperCase() ?? "O"}
-            </span>
+      <div className="px-3 pt-4 pb-2">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/05">
+          <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0 text-white text-sm font-bold shadow">
+            {user?.name?.charAt(0).toUpperCase() ?? "O"}
           </div>
           <div className="min-w-0">
-            <p className="text-white text-sm font-semibold truncate">
+            <p className="text-white text-sm font-semibold truncate leading-tight">
               {user?.name ?? "Operator"}
             </p>
-            <p className="text-slate-500 text-xs truncate">{user?.email}</p>
+            <p className="text-blue-400 text-xs truncate leading-tight">
+              {user?.email}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
-        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider px-3 py-2">
-          Menu
-        </p>
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
@@ -112,44 +87,33 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               key={href}
               href={href}
               onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group",
                 active
-                  ? "text-white"
-                  : "text-slate-400 hover:text-white hover:bg-white/05"
-              }`}
-              style={
-                active
-                  ? {
-                      background:
-                        "linear-gradient(135deg, rgba(220,38,38,0.20) 0%, rgba(220,38,38,0.08) 100%)",
-                      border: "1px solid rgba(220,38,38,0.25)",
-                    }
-                  : {}
-              }>
+                  ? "bg-red-600 text-white shadow-lg shadow-red-900/30"
+                  : "text-blue-200 hover:bg-white/10 hover:text-white",
+              )}>
               <Icon
-                className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                className={cn(
+                  "w-4 h-4 flex-shrink-0",
                   active
-                    ? "text-red-400"
-                    : "text-slate-500 group-hover:text-slate-300"
-                }`}
+                    ? "text-white"
+                    : "text-blue-300 group-hover:text-white",
+                )}
               />
               <span className="flex-1">{label}</span>
-              {active && (
-                <ChevronRight className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-              )}
+              {active && <ChevronRight className="w-3.5 h-3.5 text-red-200" />}
             </Link>
           );
         })}
       </nav>
 
-      {/* Footer: logout */}
-      <div
-        className="p-3 flex-shrink-0"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+      {/* Logout */}
+      <div className="p-3 border-t border-white/10 flex-shrink-0">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/08 transition group">
-          <LogOut className="w-4 h-4 flex-shrink-0 group-hover:text-red-400 transition-colors" />
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-blue-200 hover:bg-white/10 hover:text-white transition group">
+          <LogOut className="w-4 h-4 text-blue-300 group-hover:text-white transition" />
           Keluar
         </button>
       </div>
@@ -158,39 +122,28 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop sidebar — always visible */}
-      <aside
-        className="hidden md:flex flex-col w-60 flex-shrink-0 h-screen sticky top-0"
-        style={{
-          background: "#080f20",
-          borderRight: "1px solid rgba(255,255,255,0.07)",
-        }}>
+      {/* Desktop */}
+      <aside className="hidden md:flex flex-col w-60 flex-shrink-0 h-screen sticky top-0">
         {content}
       </aside>
 
-      {/* Mobile sidebar — drawer overlay */}
+      {/* Mobile drawer */}
       {open !== undefined && (
         <>
-          {/* Backdrop */}
           <div
-            className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
+            className={cn(
+              "md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300",
               open
                 ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
-            }`}
-            style={{ background: "rgba(0,0,0,0.60)" }}
+                : "opacity-0 pointer-events-none",
+            )}
             onClick={onClose}
           />
-
-          {/* Drawer */}
           <aside
-            className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 flex flex-col transition-transform duration-300 ${
-              open ? "translate-x-0" : "-translate-x-full"
-            }`}
-            style={{
-              background: "#080f20",
-              borderRight: "1px solid rgba(255,255,255,0.07)",
-            }}>
+            className={cn(
+              "md:hidden fixed inset-y-0 left-0 z-50 w-64 flex flex-col transition-transform duration-300",
+              open ? "translate-x-0" : "-translate-x-full",
+            )}>
             {content}
           </aside>
         </>

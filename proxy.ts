@@ -10,7 +10,7 @@ const PROTECTED: Record<string, string[]> = {
 // Auth pages — redirect away if already logged in
 const AUTH_ROUTES = ["/login", "/register"];
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Read token from zustand-persisted localStorage via cookie workaround:

@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuthStore } from "@/store/auth";
-import { useHydrated } from "@/hooks/useHydrated";
 
 export default function OperatorLayout({
   children,
@@ -15,53 +14,33 @@ export default function OperatorLayout({
   const router = useRouter();
   const { isAuthenticated, role } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const hydrated = useHydrated();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!hydrated) return;
+    // defer setting mounted to avoid synchronous setState inside effect
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     if (!isAuthenticated) {
       router.replace("/login?redirect=/operator/dashboard");
       return;
     }
-    if (role() !== "operator") {
-      router.replace("/");
-    }
-  }, [hydrated, isAuthenticated, role, router]);
+    if (role() !== "operator") router.replace("/");
+  }, [mounted, isAuthenticated, role, router]);
 
-  if (!hydrated || !isAuthenticated || role() !== "operator") {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "#060f20" }}>
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-500 text-sm">Memuat...</p>
-        </div>
-      </div>
-    );
+  if (!mounted || !isAuthenticated || role() !== "operator") {
+    return <PageLoader />;
   }
 
   return (
-    <div className="flex min-h-screen" style={{ background: "#060f20" }}>
+    <div className="flex min-h-screen bg-gray-50">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <header
-          className="md:hidden flex items-center gap-3 px-4 h-14 flex-shrink-0"
-          style={{
-            background: "#080f20",
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
-          }}>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/08 transition">
-            <Menu className="w-5 h-5" />
-          </button>
-          <span className="text-white font-semibold text-sm">
-            Bengkel<span className="text-red-500">Hub</span>
-          </span>
-        </header>
-        <main className="flex-1 p-4 md:p-8 overflow-auto">{children}</main>
-      </div>
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {children}
+      </main>
     </div>
   );
 }

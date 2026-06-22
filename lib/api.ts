@@ -16,7 +16,27 @@ export class ApiRequestError extends Error {
     public status: number,
     public payload: ApiError,
   ) {
-    super(payload.error ?? payload.message ?? "Request failed");
+    super(ApiRequestError.extractMessage(payload));
+  }
+
+  // Backend kadang balikin error per-field sebagai object, bukan string,
+  // contoh: { "error": { "email": "Email sudah terdaftar" } }
+  // Di-flatten di sini biar nggak ada komponen yang nyoba render object mentah di JSX.
+  private static extractMessage(payload: ApiError): string {
+    // ApiError may not have index signature; cast via unknown first to satisfy TS
+    const payloadRecord = payload as unknown as Record<string, unknown>;
+    const raw: unknown = payloadRecord?.error ?? payloadRecord?.message;
+
+    if (typeof raw === "string" && raw.length > 0) return raw;
+
+    if (raw && typeof raw === "object") {
+      const messages = Object.values(raw as Record<string, unknown>).filter(
+        (v): v is string => typeof v === "string",
+      );
+      if (messages.length > 0) return messages.join(", ");
+    }
+
+    return "Request failed";
   }
 }
 
@@ -66,22 +86,29 @@ import type {
   User,
 } from "./types";
 
+// Bentuk envelope sukses dari backend Go: { success, message, data }
+interface ApiEnvelope<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 export const authApi = {
   login: (payload: LoginPayload) =>
-    apiFetch<AuthResponse>("/auth/login", {
+    apiFetch<ApiEnvelope<AuthResponse>>("/auth/login", {
       method: "POST",
       body: payload,
       public: true,
-    }),
+    }).then((res) => res.data),
 
   register: (payload: RegisterPayload) =>
-    apiFetch<AuthResponse>("/auth/register", {
+    apiFetch<ApiEnvelope<AuthResponse>>("/auth/register", {
       method: "POST",
       body: payload,
       public: true,
-    }),
+    }).then((res) => res.data),
 
-  me: () => apiFetch<User>("/auth/me"),
+  me: () => apiFetch<ApiEnvelope<User>>("/auth/me").then((res) => res.data),
 };
 
 // ─── Workshop endpoints ───────────────────────────────────────────────────────
