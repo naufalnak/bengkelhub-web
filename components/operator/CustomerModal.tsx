@@ -6,7 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { workshopApi } from "@/lib/api";
+import { customerApi } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import {
   cn,
@@ -16,25 +17,31 @@ import {
   btnOutline,
 } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
-import type { Workshop } from "@/lib/types";
+import type { Customer } from "@/lib/types";
 
 const schema = z.object({
-  name: z.string().min(3, "Nama minimal 3 karakter"),
-  address: z.string().min(5, "Alamat minimal 5 karakter"),
-  phone: z.string().min(9, "Nomor telepon tidak valid"),
-  description: z.string().min(10, "Deskripsi minimal 10 karakter"),
+  name: z.string().min(2, "Nama minimal 2 karakter"),
+  phone: z.string().optional().or(z.literal("")),
+  email: z.string().email("Format email tidak valid").optional().or(z.literal("")),
+  address: z.string().optional().or(z.literal("")),
 });
 type FormData = z.infer<typeof schema>;
 
-interface WorkshopModalProps {
+interface CustomerModalProps {
   open: boolean;
   onClose: () => void;
-  workshop?: Workshop | null;
+  workshopId: string;
+  customer?: Customer | null;
 }
 
-export function WorkshopModal({ open, onClose, workshop }: WorkshopModalProps) {
+export function CustomerModal({
+  open,
+  onClose,
+  workshopId,
+  customer,
+}: CustomerModalProps) {
   const queryClient = useQueryClient();
-  const isEdit = !!workshop;
+  const isEdit = !!customer;
 
   const {
     register,
@@ -46,34 +53,34 @@ export function WorkshopModal({ open, onClose, workshop }: WorkshopModalProps) {
   });
 
   useEffect(() => {
-    if (workshop) {
+    if (customer) {
       reset({
-        name: workshop.name,
-        address: workshop.address,
-        phone: workshop.phone,
-        description: workshop.description,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
       });
     } else {
-      reset({ name: "", address: "", phone: "", description: "" });
+      reset({ name: "", phone: "", email: "", address: "" });
     }
-  }, [workshop, reset]);
+  }, [customer, reset]);
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
       isEdit
-        ? workshopApi.update(workshop!.id, data)
-        : workshopApi.create(data),
+        ? customerApi.update(customer!.id, data)
+        : customerApi.create(workshopId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["operator-workshops"] });
+      queryClient.invalidateQueries({ queryKey: ["customers", workshopId] });
       toast.success(
-        isEdit
-          ? "Workshop berhasil diperbarui"
-          : "Workshop berhasil ditambahkan",
+        isEdit ? "Pelanggan berhasil diperbarui" : "Pelanggan berhasil ditambahkan",
       );
       onClose();
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Gagal menyimpan workshop");
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Gagal menyimpan pelanggan";
+      toast.error(message);
     },
   });
 
@@ -87,7 +94,7 @@ export function WorkshopModal({ open, onClose, workshop }: WorkshopModalProps) {
       </button>
       <button
         type="submit"
-        form="workshop-form"
+        form="customer-form"
         disabled={mutation.isPending}
         className={cn(btnPrimary, "flex-1 py-2.5 text-sm")}>
         {mutation.isPending ? (
@@ -97,7 +104,7 @@ export function WorkshopModal({ open, onClose, workshop }: WorkshopModalProps) {
         ) : isEdit ? (
           "Simpan Perubahan"
         ) : (
-          "Tambah Workshop"
+          "Tambah Pelanggan"
         )}
       </button>
     </div>
@@ -107,18 +114,22 @@ export function WorkshopModal({ open, onClose, workshop }: WorkshopModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title={isEdit ? "Edit Workshop" : "Tambah Workshop"}
-      subtitle={isEdit ? "Update informasi bengkel" : "Daftarkan bengkel baru"}
+      title={isEdit ? "Edit Pelanggan" : "Tambah Pelanggan"}
+      subtitle={
+        isEdit
+          ? "Update data pelanggan"
+          : "Catat data pelanggan walk-in (tidak perlu akun login)"
+      }
       footer={footer}>
       <form
-        id="workshop-form"
+        id="customer-form"
         onSubmit={handleSubmit((d) => mutation.mutate(d))}
         className="space-y-4">
         <div>
-          <label className={labelClass}>Nama Bengkel</label>
+          <label className={labelClass}>Nama Pelanggan</label>
           <input
             {...register("name")}
-            placeholder="Bengkel Maju Jaya"
+            placeholder="Budi Santoso"
             className={cn(inputClass, errors.name && "border-red-400")}
           />
           {errors.name && (
@@ -129,44 +140,34 @@ export function WorkshopModal({ open, onClose, workshop }: WorkshopModalProps) {
           <label className={labelClass}>No. Telepon</label>
           <input
             {...register("phone")}
-            placeholder="08123456789"
+            placeholder="081234567890"
             className={cn(inputClass, errors.phone && "border-red-400")}
           />
           {errors.phone && (
-            <p className="text-red-500 text-xs mt-1.5">
-              {errors.phone.message}
-            </p>
+            <p className="text-red-500 text-xs mt-1.5">{errors.phone.message}</p>
           )}
         </div>
         <div>
-          <label className={labelClass}>Alamat Lengkap</label>
+          <label className={labelClass}>Email (opsional)</label>
           <input
+            {...register("email")}
+            placeholder="budi@email.com"
+            className={cn(inputClass, errors.email && "border-red-400")}
+          />
+          {errors.email && (
+            <p className="text-red-500 text-xs mt-1.5">{errors.email.message}</p>
+          )}
+        </div>
+        <div>
+          <label className={labelClass}>Alamat (opsional)</label>
+          <textarea
             {...register("address")}
-            placeholder="Jl. Raya No. 123..."
-            className={cn(inputClass, errors.address && "border-red-400")}
+            placeholder="Jl. Kemang Raya No. 5..."
+            rows={2}
+            className={cn(inputClass, "resize-none", errors.address && "border-red-400")}
           />
           {errors.address && (
-            <p className="text-red-500 text-xs mt-1.5">
-              {errors.address.message}
-            </p>
-          )}
-        </div>
-        <div>
-          <label className={labelClass}>Deskripsi</label>
-          <textarea
-            {...register("description")}
-            placeholder="Bengkel spesialis motor & mobil..."
-            rows={3}
-            className={cn(
-              inputClass,
-              "resize-none",
-              errors.description && "border-red-400",
-            )}
-          />
-          {errors.description && (
-            <p className="text-red-500 text-xs mt-1.5">
-              {errors.description.message}
-            </p>
+            <p className="text-red-500 text-xs mt-1.5">{errors.address.message}</p>
           )}
         </div>
       </form>

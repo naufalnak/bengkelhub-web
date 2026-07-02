@@ -10,7 +10,7 @@ import { fadeUp } from "./animations";
 type Workshop = {
   id: string;
   name: string;
-  city: string;
+  address: string;
   description: string;
   is_active: boolean;
 };
@@ -69,7 +69,7 @@ export function FeaturedWorkshops({ workshops }: { workshops: Workshop[] }) {
                   </h3>
                   <div className="flex items-center gap-1.5 text-blue-300 text-xs mt-1">
                     <MapPin className="w-3 h-3" />
-                    {w.city}
+                    <span className="truncate">{w.address}</span>
                   </div>
                 </div>
                 <div className="p-5">

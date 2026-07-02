@@ -29,16 +29,20 @@ function OrderRow({ order }: { order: Order }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-900 truncate">
-          {order.vehicle_type}
+          {order.vehicle_type} · {order.vehicle_plate}
         </p>
-        <p className="text-xs text-gray-400 truncate mt-0.5">
-          {order.complaint}
-        </p>
+        {order.notes && (
+          <p className="text-xs text-gray-400 truncate mt-0.5">
+            {order.notes}
+          </p>
+        )}
       </div>
       <div className="hidden sm:block text-right flex-shrink-0">
-        <p className="text-xs text-gray-500">
-          {formatDateShort(order.booking_date)}
-        </p>
+        {order.slot && (
+          <p className="text-xs text-gray-500">
+            {formatDateShort(order.slot.date)}
+          </p>
+        )}
       </div>
       <Badge variant={orderStatusVariant[order.status]}>
         {orderStatusLabel[order.status]}
@@ -50,10 +54,11 @@ function OrderRow({ order }: { order: Order }) {
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
 
-  const { data: workshops = [], isLoading: loadingWorkshops } = useQuery({
+  const { data: workshopData, isLoading: loadingWorkshops } = useQuery({
     queryKey: ["operator-workshops"],
-    queryFn: workshopApi.list,
+    queryFn: () => workshopApi.myWorkshops(1, 50),
   });
+  const workshops = workshopData?.data ?? [];
 
   const {
     data: orders = [],
@@ -65,9 +70,9 @@ export default function DashboardPage() {
     queryFn: async () => {
       if (workshops.length === 0) return [];
       const results = await Promise.all(
-        workshops.map((w) => orderApi.workshopOrders(w.id)),
+        workshops.map((w) => orderApi.workshopOrders(w.id, 1, 50)),
       );
-      return results.flat();
+      return results.flatMap((r) => r.data);
     },
     enabled: workshops.length > 0,
   });
@@ -76,7 +81,6 @@ export default function DashboardPage() {
 
   const pending = orders.filter((o) => o.status === "pending").length;
   const confirmed = orders.filter((o) => o.status === "confirmed").length;
-  const in_progress = orders.filter((o) => o.status === "in_progress").length;
   const done = orders.filter((o) => o.status === "done").length;
 
   const recentOrders = [...orders]
@@ -120,8 +124,8 @@ export default function DashboardPage() {
               href="/operator/orders"
             />
             <StatsCard
-              label="Diproses"
-              value={in_progress + confirmed}
+              label="Dikonfirmasi"
+              value={confirmed}
               icon={Clock}
               color="red"
               sub="sedang berjalan"

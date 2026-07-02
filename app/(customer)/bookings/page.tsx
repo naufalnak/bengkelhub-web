@@ -4,21 +4,20 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ClipboardList, Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
-import { orderApi } from "@/lib/api";
+import { orderApi, ApiRequestError } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLoader } from "@/components/ui/PageLoader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { cn, formatDateShort, formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 import { orderStatusVariant, orderStatusLabel } from "@/lib/variants";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { Order, BookingStatus } from "@/lib/types";
 
-const FILTER_STATUSES: (OrderStatus | "all")[] = [
+const FILTER_STATUSES: (BookingStatus | "all")[] = [
   "all",
   "pending",
   "confirmed",
-  "in_progress",
   "done",
   "cancelled",
 ];
@@ -49,16 +48,20 @@ function BookingCard({
             </p>
           )}
           <p className="text-sm font-bold text-gray-900 truncate">
-            {order.vehicle_type}
+            {order.vehicle_type} · {order.vehicle_plate}
           </p>
-          <p className="text-xs text-gray-400 truncate mt-0.5">
-            {order.complaint}
-          </p>
+          {order.notes && (
+            <p className="text-xs text-gray-400 truncate mt-0.5">
+              {order.notes}
+            </p>
+          )}
         </div>
         <div className="hidden sm:block text-right flex-shrink-0">
-          <p className="text-xs font-medium text-gray-600">
-            {formatDateShort(order.booking_date)}
-          </p>
+          {order.slot && (
+            <p className="text-xs font-medium text-gray-600">
+              {formatDateTime(order.slot.date)}
+            </p>
+          )}
         </div>
         <Badge variant={orderStatusVariant[order.status]}>
           {orderStatusLabel[order.status]}
@@ -77,8 +80,8 @@ function BookingCard({
             {[
               { label: "ID Order", value: `#${order.id.slice(0, 8)}` },
               {
-                label: "Tanggal Booking",
-                value: formatDateShort(order.booking_date),
+                label: "Jadwal",
+                value: order.slot ? formatDateTime(order.slot.date) : "—",
               },
               { label: "Dibuat", value: formatDateTime(order.created_at) },
             ].map(({ label, value }) => (
@@ -92,9 +95,9 @@ function BookingCard({
               </div>
             ))}
             <div className="col-span-2 sm:col-span-3 bg-white rounded-xl px-3 py-2.5 border border-gray-200">
-              <p className="text-xs text-gray-400">Keluhan</p>
+              <p className="text-xs text-gray-400">Keluhan / Catatan</p>
               <p className="text-sm text-gray-900 mt-0.5 leading-relaxed">
-                {order.complaint}
+                {order.notes || "—"}
               </p>
             </div>
           </div>
@@ -119,13 +122,16 @@ function BookingCard({
 
 export default function BookingsPage() {
   const queryClient = useQueryClient();
-  const [filterStatus, setFilterStatus] = useState<OrderStatus | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<BookingStatus | "all">(
+    "all",
+  );
   const [toCancel, setToCancel] = useState<Order | null>(null);
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["my-orders"],
-    queryFn: orderApi.myOrders,
+    queryFn: () => orderApi.myOrders(1, 50),
   });
+  const orders = data?.data ?? [];
 
   const cancelMutation = useMutation({
     mutationFn: (orderId: string) => orderApi.cancel(orderId),
@@ -134,8 +140,10 @@ export default function BookingsPage() {
       toast.success("Booking berhasil dibatalkan");
       setToCancel(null);
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Gagal membatalkan booking");
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Gagal membatalkan booking";
+      toast.error(message);
     },
   });
 

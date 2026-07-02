@@ -1,7 +1,47 @@
 import { getToken } from "./auth";
-import type { ApiError } from "./types";
+import type {
+  ApiEnvelope,
+  ApiError,
+  PaginatedData,
+  ValidationErrorItem,
+  AuthResponse,
+  LoginPayload,
+  RegisterPayload,
+  User,
+  Workshop,
+  CreateWorkshopPayload,
+  UpdateWorkshopPayload,
+  Slot,
+  SlotWithAvailability,
+  CreateSlotPayload,
+  UpdateSlotPayload,
+  BulkCreateSlotPayload,
+  BulkCreateSlotResult,
+  Order,
+  CreateOrderPayload,
+  UpdateOrderStatusPayload,
+  Customer,
+  CreateCustomerPayload,
+  UpdateCustomerPayload,
+  Vehicle,
+  CreateVehiclePayload,
+  UpdateVehiclePayload,
+  Service,
+  ServiceItem,
+  CreateServicePayload,
+  UpdateServicePayload,
+  AddServiceItemPayload,
+  Invoice,
+  CreateInvoicePayload,
+  Payment,
+  AddPaymentPayload,
+  LaporanData,
+} from "./types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// Semua route Go di-mount di group /api/v1, jadi base url WAJIB include itu.
+// Set NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1 di .env.local
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 
@@ -9,6 +49,8 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   /** Skip Authorization header (e.g. login/register) */
   public?: boolean;
+  /** Query string params, otomatis di-encode & dibuang kalau undefined/"" */
+  query?: Record<string, string | number | boolean | undefined>;
 }
 
 export class ApiRequestError extends Error {
@@ -19,35 +61,58 @@ export class ApiRequestError extends Error {
     super(ApiRequestError.extractMessage(payload));
   }
 
-  // Backend kadang balikin error per-field sebagai object, bukan string,
-  // contoh: { "error": { "email": "Email sudah terdaftar" } }
-  // Di-flatten di sini biar nggak ada komponen yang nyoba render object mentah di JSX.
+  // Backend pkg/validator Go balikin error validasi sebagai ARRAY:
+  // { "error": [{ "field": "Email", "message": "Invalid email format" }] }
+  // Selain itu, error non-validasi balik sebagai string biasa:
+  // { "error": null, "message": "workshop not found" }
+  // Di-flatten di sini biar nggak ada komponen yang nyoba render object/array mentah di JSX.
   private static extractMessage(payload: ApiError): string {
-    // ApiError may not have index signature; cast via unknown first to satisfy TS
-    const payloadRecord = payload as unknown as Record<string, unknown>;
-    const raw: unknown = payloadRecord?.error ?? payloadRecord?.message;
+    const raw = payload?.error;
 
     if (typeof raw === "string" && raw.length > 0) return raw;
 
-    if (raw && typeof raw === "object") {
-      const messages = Object.values(raw as Record<string, unknown>).filter(
-        (v): v is string => typeof v === "string",
-      );
+    if (Array.isArray(raw) && raw.length > 0) {
+      const messages = (raw as ValidationErrorItem[])
+        .map((item) =>
+          item?.field ? `${item.field}: ${item.message}` : item?.message,
+        )
+        .filter((v): v is string => typeof v === "string" && v.length > 0);
       if (messages.length > 0) return messages.join(", ");
+    }
+
+    if (typeof payload?.message === "string" && payload.message.length > 0) {
+      return payload.message;
     }
 
     return "Request failed";
   }
 }
 
+function buildQueryString(
+  query?: Record<string, string | number | boolean | undefined>,
+): string {
+  if (!query) return "";
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, public: isPublic, ...rest } = options;
+  const { body, public: isPublic, query, ...rest } = options;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    // Kalau NEXT_PUBLIC_API_URL nunjuk ke tunnel ngrok (*.ngrok-free.dev),
+    // header ini wajib ada, soalnya ngrok free tier nampilin halaman
+    // interstitial warning (tanpa CORS header) buat request tanpa header ini,
+    // dan itu yang kebaca browser sebagai "CORS error" padahal backend aman.
+    "ngrok-skip-browser-warning": "true",
   };
 
   if (!isPublic) {
@@ -55,7 +120,7 @@ export async function apiFetch<T>(
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${BASE_URL}${path}${buildQueryString(query)}`, {
     ...rest,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -77,103 +142,241 @@ export async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
-// ─── Auth endpoints ───────────────────────────────────────────────────────────
-
-import type {
-  AuthResponse,
-  LoginPayload,
-  RegisterPayload,
-  User,
-} from "./types";
-
-// Bentuk envelope sukses dari backend Go: { success, message, data }
-interface ApiEnvelope<T> {
-  success: boolean;
-  message: string;
-  data: T;
+// Shortcut: panggil endpoint yang envelope-nya { success, message, data },
+// langsung balikin isi `data`-nya aja.
+function unwrap<T>(path: string, options?: RequestOptions): Promise<T> {
+  return apiFetch<ApiEnvelope<T>>(path, options).then((res) => res.data);
 }
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
 
 export const authApi = {
   login: (payload: LoginPayload) =>
-    apiFetch<ApiEnvelope<AuthResponse>>("/auth/login", {
+    unwrap<AuthResponse>("/auth/login", {
       method: "POST",
       body: payload,
       public: true,
-    }).then((res) => res.data),
+    }),
 
   register: (payload: RegisterPayload) =>
-    apiFetch<ApiEnvelope<AuthResponse>>("/auth/register", {
+    unwrap<AuthResponse>("/auth/register", {
       method: "POST",
       body: payload,
       public: true,
-    }).then((res) => res.data),
+    }),
 
-  me: () => apiFetch<ApiEnvelope<User>>("/auth/me").then((res) => res.data),
+  me: () => unwrap<User>("/auth/me"),
+
+  // Kirim ulang email verifikasi — butuh Bearer token
+  resendVerification: () =>
+    unwrap<void>("/auth/resend-verification", { method: "POST" }),
 };
 
-// ─── Workshop endpoints ───────────────────────────────────────────────────────
-
-import type { Workshop, WorkshopPayload } from "./types";
+// ─── Workshop ────────────────────────────────────────────────────────────────
 
 export const workshopApi = {
-  list: () => apiFetch<Workshop[]>("/workshops"),
+  // Publik, gak perlu token
+  list: (page = 1, limit = 10) =>
+    unwrap<PaginatedData<Workshop>>("/workshops", {
+      public: true,
+      query: { page, limit },
+    }),
 
-  getById: (id: string) => apiFetch<Workshop>(`/workshops/${id}`),
+  getById: (id: string) =>
+    unwrap<Workshop>(`/workshops/${id}`, { public: true }),
 
-  create: (payload: WorkshopPayload) =>
-    apiFetch<Workshop>("/workshops", { method: "POST", body: payload }),
+  // Operator: workshop milik sendiri
+  myWorkshops: (page = 1, limit = 10) =>
+    unwrap<PaginatedData<Workshop>>("/workshops/my", {
+      query: { page, limit },
+    }),
 
-  update: (id: string, payload: Partial<WorkshopPayload>) =>
-    apiFetch<Workshop>(`/workshops/${id}`, { method: "PUT", body: payload }),
+  create: (payload: CreateWorkshopPayload) =>
+    unwrap<Workshop>("/workshops", { method: "POST", body: payload }),
+
+  update: (id: string, payload: UpdateWorkshopPayload) =>
+    unwrap<Workshop>(`/workshops/${id}`, { method: "PATCH", body: payload }),
 
   delete: (id: string) =>
     apiFetch<void>(`/workshops/${id}`, { method: "DELETE" }),
 };
 
-// ─── Slot endpoints ───────────────────────────────────────────────────────────
-
-import type { Slot, SlotPayload } from "./types";
+// ─── Slot ────────────────────────────────────────────────────────────────────
 
 export const slotApi = {
-  listByWorkshop: (workshopId: string) =>
-    apiFetch<Slot[]>(`/workshops/${workshopId}/slots`),
+  listByWorkshop: (workshopId: string, onlyAvailable = false) =>
+    unwrap<SlotWithAvailability[]>(`/workshops/${workshopId}/slots`, {
+      public: true,
+      query: { available: onlyAvailable || undefined },
+    }),
 
-  create: (workshopId: string, payload: SlotPayload) =>
-    apiFetch<Slot>(`/workshops/${workshopId}/slots`, {
+  getById: (id: string) =>
+    unwrap<SlotWithAvailability>(`/slots/${id}`, { public: true }),
+
+  create: (workshopId: string, payload: CreateSlotPayload) =>
+    unwrap<Slot>(`/workshops/${workshopId}/slots`, {
       method: "POST",
       body: payload,
     }),
 
-  delete: (workshopId: string, slotId: string) =>
-    apiFetch<void>(`/workshops/${workshopId}/slots/${slotId}`, {
+  // Generate banyak slot sekaligus, biar operator gak perlu klik manual berkali-kali
+  bulkCreate: (workshopId: string, payload: BulkCreateSlotPayload) =>
+    unwrap<BulkCreateSlotResult>(`/workshops/${workshopId}/slots/bulk`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  update: (id: string, payload: UpdateSlotPayload) =>
+    unwrap<Slot>(`/slots/${id}`, { method: "PATCH", body: payload }),
+
+  // Catatan: route standalone, BUKAN nested di bawah /workshops/:workshopId/slots/:id
+  delete: (id: string) => apiFetch<void>(`/slots/${id}`, { method: "DELETE" }),
+};
+
+// ─── Order (booking publik) ──────────────────────────────────────────────────
+
+export const orderApi = {
+  // Customer: create booking
+  create: (payload: CreateOrderPayload) =>
+    unwrap<Order>("/orders", { method: "POST", body: payload }),
+
+  // Customer: my orders — route backend-nya "/orders/my", BUKAN "/orders/me"
+  myOrders: (page = 1, limit = 10) =>
+    unwrap<PaginatedData<Order>>("/orders/my", { query: { page, limit } }),
+
+  getById: (id: string) => unwrap<Order>(`/orders/${id}`),
+
+  // Customer: cancel
+  cancel: (orderId: string) =>
+    unwrap<Order>(`/orders/${orderId}/cancel`, { method: "PATCH" }),
+
+  // Operator: orders untuk workshop miliknya
+  workshopOrders: (workshopId: string, page = 1, limit = 10) =>
+    unwrap<PaginatedData<Order>>(`/workshops/${workshopId}/orders`, {
+      query: { page, limit },
+    }),
+
+  // Operator: update status
+  updateStatus: (orderId: string, payload: UpdateOrderStatusPayload) =>
+    unwrap<Order>(`/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: payload,
+    }),
+};
+
+// ─── Customer (internal, walk-in) ─────────────────────────────────────────────
+
+export const customerApi = {
+  list: (workshopId: string, search = "", page = 1, limit = 10) =>
+    unwrap<PaginatedData<Customer>>(`/workshops/${workshopId}/customers`, {
+      query: { search, page, limit },
+    }),
+
+  getById: (id: string) => unwrap<Customer>(`/customers/${id}`),
+
+  create: (workshopId: string, payload: CreateCustomerPayload) =>
+    unwrap<Customer>(`/workshops/${workshopId}/customers`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  update: (id: string, payload: UpdateCustomerPayload) =>
+    unwrap<Customer>(`/customers/${id}`, { method: "PATCH", body: payload }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/customers/${id}`, { method: "DELETE" }),
+};
+
+// ─── Vehicle ─────────────────────────────────────────────────────────────────
+
+export const vehicleApi = {
+  list: (workshopId: string, search = "", page = 1, limit = 10) =>
+    unwrap<PaginatedData<Vehicle>>(`/workshops/${workshopId}/vehicles`, {
+      query: { search, page, limit },
+    }),
+
+  getById: (id: string) => unwrap<Vehicle>(`/vehicles/${id}`),
+
+  create: (workshopId: string, payload: CreateVehiclePayload) =>
+    unwrap<Vehicle>(`/workshops/${workshopId}/vehicles`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  update: (id: string, payload: UpdateVehiclePayload) =>
+    unwrap<Vehicle>(`/vehicles/${id}`, { method: "PATCH", body: payload }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/vehicles/${id}`, { method: "DELETE" }),
+};
+
+// ─── Service (pekerjaan bengkel) ──────────────────────────────────────────────
+
+export const serviceApi = {
+  list: (workshopId: string, status = "", page = 1, limit = 10) =>
+    unwrap<PaginatedData<Service>>(`/workshops/${workshopId}/services`, {
+      query: { status, page, limit },
+    }),
+
+  getById: (id: string) => unwrap<Service>(`/services/${id}`),
+
+  create: (workshopId: string, payload: CreateServicePayload) =>
+    unwrap<Service>(`/workshops/${workshopId}/services`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  update: (id: string, payload: UpdateServicePayload) =>
+    unwrap<Service>(`/services/${id}`, { method: "PATCH", body: payload }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/services/${id}`, { method: "DELETE" }),
+
+  addItem: (serviceId: string, payload: AddServiceItemPayload) =>
+    unwrap<ServiceItem>(`/services/${serviceId}/items`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  deleteItem: (serviceId: string, itemId: string) =>
+    apiFetch<void>(`/services/${serviceId}/items/${itemId}`, {
       method: "DELETE",
     }),
 };
 
-// ─── Order endpoints ──────────────────────────────────────────────────────────
+// ─── Invoice & Payment ────────────────────────────────────────────────────────
 
-import type { Order, OrderPayload, UpdateOrderStatusPayload } from "./types";
+export const invoiceApi = {
+  list: (workshopId: string, status = "", page = 1, limit = 10) =>
+    unwrap<PaginatedData<Invoice>>(`/workshops/${workshopId}/invoices`, {
+      query: { status, page, limit },
+    }),
 
-export const orderApi = {
-  // Customer: create booking
-  create: (payload: OrderPayload) =>
-    apiFetch<Order>("/orders", { method: "POST", body: payload }),
+  getById: (id: string) => unwrap<Invoice>(`/invoices/${id}`),
 
-  // Customer: my orders
-  myOrders: () => apiFetch<Order[]>("/orders/me"),
-
-  // Customer: cancel
-  cancel: (orderId: string) =>
-    apiFetch<Order>(`/orders/${orderId}/cancel`, { method: "PATCH" }),
-
-  // Operator: orders for their workshop
-  workshopOrders: (workshopId: string) =>
-    apiFetch<Order[]>(`/workshops/${workshopId}/orders`),
-
-  // Operator: update status
-  updateStatus: (orderId: string, payload: UpdateOrderStatusPayload) =>
-    apiFetch<Order>(`/orders/${orderId}/status`, {
-      method: "PATCH",
+  create: (workshopId: string, payload: CreateInvoicePayload) =>
+    unwrap<Invoice>(`/workshops/${workshopId}/invoices`, {
+      method: "POST",
       body: payload,
+    }),
+
+  addPayment: (invoiceId: string, payload: AddPaymentPayload) =>
+    unwrap<Payment>(`/invoices/${invoiceId}/payments`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  deletePayment: (invoiceId: string, paymentId: string) =>
+    apiFetch<void>(`/invoices/${invoiceId}/payments/${paymentId}`, {
+      method: "DELETE",
+    }),
+};
+
+// ─── Laporan ─────────────────────────────────────────────────────────────────
+
+export const laporanApi = {
+  getMonthly: (workshopId: string, month: number, year: number) =>
+    unwrap<LaporanData>(`/workshops/${workshopId}/laporan`, {
+      query: { month, year },
     }),
 };

@@ -17,9 +17,9 @@ import {
   CheckCircle2,
   Wrench,
 } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { workshopApi, slotApi, orderApi } from "@/lib/api";
+import { workshopApi, slotApi, orderApi, ApiRequestError } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { Badge } from "@/components/ui/Badge";
 import { SectionLoader } from "@/components/ui/PageLoader";
@@ -31,53 +31,35 @@ import {
   btnOutline,
 } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
-import type { Slot } from "@/lib/types";
-
-const DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 const schema = z.object({
   slot_id: z.string().min(1, "Pilih jadwal terlebih dahulu"),
-  booking_date: z.string().min(1, "Pilih tanggal booking"),
   vehicle_type: z.string().min(2, "Jenis kendaraan wajib diisi"),
-  complaint: z.string().min(5, "Keluhan minimal 5 karakter"),
+  vehicle_plate: z.string().min(3, "Nomor plat wajib diisi"),
+  notes: z.string().optional().or(z.literal("")),
 });
 type FormData = z.infer<typeof schema>;
-
-function getAvailableDates(slots: Slot[]) {
-  const activeDays = new Set(
-    slots.filter((s) => s.is_active).map((s) => s.day_of_week),
-  );
-  const dates: { date: Date; label: string; dow: number }[] = [];
-  for (let i = 1; i <= 14; i++) {
-    const d = addDays(new Date(), i);
-    const dow = d.getDay();
-    if (activeDays.has(dow)) {
-      dates.push({
-        date: d,
-        label: format(d, "EEE, dd MMM", { locale: idLocale }),
-        dow,
-      });
-    }
-  }
-  return dates;
-}
 
 export default function WorkshopDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { isAuthenticated, role } = useAuthStore();
   const [success, setSuccess] = useState(false);
-  const [selectedDow, setSelectedDow] = useState<number | null>(null);
 
   const { data: workshop, isLoading: loadingWs } = useQuery({
     queryKey: ["workshop", id],
     queryFn: () => workshopApi.getById(id),
   });
 
+  // Cuma slot yang masih ada sisa kuota & belum lewat tanggalnya
   const { data: slots = [], isLoading: loadingSlots } = useQuery({
     queryKey: ["slots-public", id],
-    queryFn: () => slotApi.listByWorkshop(id),
+    queryFn: () => slotApi.listByWorkshop(id, true),
   });
+
+  const sortedSlots = [...slots].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
 
   const {
     register,
@@ -89,13 +71,7 @@ export default function WorkshopDetailPage() {
     resolver: zodResolver(schema),
   });
 
-  const selectedDate = watch("booking_date");
   const selectedSlotId = watch("slot_id");
-  const availableDates = getAvailableDates(slots);
-  const slotsForDate =
-    selectedDow !== null
-      ? slots.filter((s) => s.is_active && s.day_of_week === selectedDow)
-      : [];
 
   const bookingMutation = useMutation({
     mutationFn: (data: FormData) =>
@@ -104,8 +80,10 @@ export default function WorkshopDetailPage() {
       setSuccess(true);
       toast.success("Booking berhasil! Menunggu konfirmasi bengkel");
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Gagal membuat booking");
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Gagal membuat booking";
+      toast.error(message);
     },
   });
 
@@ -182,11 +160,8 @@ export default function WorkshopDetailPage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1.5">
                   <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                  {workshop.city}
-                </div>
-                <p className="text-xs text-gray-400 mt-0.5">
                   {workshop.address}
-                </p>
+                </div>
               </div>
             </div>
 
@@ -205,37 +180,38 @@ export default function WorkshopDetailPage() {
             )}
           </div>
 
-          {/* Jadwal operasional */}
+          {/* Slot tersedia */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6">
             <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2 mb-4">
               <CalendarClock className="w-4 h-4 text-[var(--navy)]" /> Jadwal
-              Operasional
+              Tersedia
             </h2>
             {loadingSlots ? (
               <SectionLoader />
-            ) : slots.filter((s) => s.is_active).length === 0 ? (
-              <p className="text-gray-400 text-sm">Belum ada jadwal tersedia</p>
+            ) : sortedSlots.length === 0 ? (
+              <p className="text-gray-400 text-sm">
+                Belum ada jadwal tersedia saat ini
+              </p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {[...slots]
-                  .filter((s) => s.is_active)
-                  .sort((a, b) => a.day_of_week - b.day_of_week)
-                  .map((slot) => (
-                    <div
-                      key={slot.id}
-                      className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm">
-                      <span className="font-semibold text-gray-900">
-                        {DAYS[slot.day_of_week]}
-                      </span>
-                      <span className="text-gray-400">
-                        {slot.open_time}–{slot.close_time}
-                      </span>
-                      <div className="flex items-center gap-1 text-gray-400 text-xs">
-                        <Users className="w-3 h-3" />
-                        {slot.quota}
-                      </div>
+                {sortedSlots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm">
+                    <span className="font-semibold text-gray-900">
+                      {format(new Date(slot.date), "EEE, dd MMM", {
+                        locale: idLocale,
+                      })}
+                    </span>
+                    <span className="text-gray-400">
+                      {format(new Date(slot.date), "HH:mm")}
+                    </span>
+                    <div className="flex items-center gap-1 text-gray-400 text-xs">
+                      <Users className="w-3 h-3" />
+                      {slot.remaining}
                     </div>
-                  ))}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -248,7 +224,7 @@ export default function WorkshopDetailPage() {
               Pesan Sekarang
             </h3>
             <p className="text-xs text-gray-500 mb-5">
-              Pilih tanggal & jam, lalu isi detail kendaraan
+              Pilih jadwal, lalu isi detail kendaraan
             </p>
 
             {!isAuthenticated ? (
@@ -288,83 +264,45 @@ export default function WorkshopDetailPage() {
                   </div>
                 )}
 
-                {/* Pilih tanggal */}
+                {/* Pilih slot */}
                 <div>
-                  <label className={labelClass}>Pilih Tanggal</label>
-                  {availableDates.length === 0 ? (
+                  <label className={labelClass}>Pilih Jadwal</label>
+                  {sortedSlots.length === 0 ? (
                     <p className="text-gray-400 text-xs">
-                      Tidak ada tanggal tersedia dalam 14 hari ke depan
+                      Tidak ada jadwal tersedia saat ini
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
-                      {availableDates.map(({ date, label, dow }) => {
-                        const val = format(date, "yyyy-MM-dd");
-                        const active = selectedDate === val;
+                      {sortedSlots.map((slot) => {
+                        const active = selectedSlotId === slot.id;
                         return (
                           <button
-                            key={val}
+                            key={slot.id}
                             type="button"
-                            onClick={() => {
-                              setValue("booking_date", val);
-                              setValue("slot_id", "");
-                              setSelectedDow(dow);
-                            }}
+                            onClick={() => setValue("slot_id", slot.id)}
                             className={cn(
-                              "px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition",
+                              "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition",
                               active
                                 ? "bg-[var(--navy)] text-white border-[var(--navy)]"
                                 : "bg-white text-gray-600 border-gray-200 hover:border-gray-300",
                             )}>
-                            {label}
+                            {format(new Date(slot.date), "dd MMM, HH:mm", {
+                              locale: idLocale,
+                            })}
+                            <span className="opacity-60">
+                              ({slot.remaining})
+                            </span>
                           </button>
                         );
                       })}
                     </div>
                   )}
-                  {errors.booking_date && (
+                  {errors.slot_id && (
                     <p className="text-red-500 text-xs mt-1.5">
-                      {errors.booking_date.message}
+                      {errors.slot_id.message}
                     </p>
                   )}
                 </div>
-
-                {/* Pilih jam */}
-                {selectedDow !== null && (
-                  <div>
-                    <label className={labelClass}>Pilih Jam</label>
-                    {slotsForDate.length === 0 ? (
-                      <p className="text-gray-400 text-xs">
-                        Tidak ada slot untuk hari ini
-                      </p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {slotsForDate.map((slot) => {
-                          const active = selectedSlotId === slot.id;
-                          return (
-                            <button
-                              key={slot.id}
-                              type="button"
-                              onClick={() => setValue("slot_id", slot.id)}
-                              className={cn(
-                                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition",
-                                active
-                                  ? "bg-[var(--navy)] text-white border-[var(--navy)]"
-                                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300",
-                              )}>
-                              {slot.open_time}–{slot.close_time}
-                              <span className="opacity-60">({slot.quota})</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {errors.slot_id && (
-                      <p className="text-red-500 text-xs mt-1.5">
-                        {errors.slot_id.message}
-                      </p>
-                    )}
-                  </div>
-                )}
 
                 <div>
                   <label className={labelClass}>Jenis Kendaraan</label>
@@ -385,22 +323,33 @@ export default function WorkshopDetailPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Keluhan / Kerusakan</label>
-                  <textarea
-                    {...register("complaint")}
-                    rows={3}
-                    placeholder="Ganti oli, rem bunyi, AC tidak dingin..."
+                  <label className={labelClass}>Nomor Plat</label>
+                  <input
+                    {...register("vehicle_plate")}
+                    placeholder="B 1234 ABC"
                     className={cn(
                       inputClass,
-                      "text-sm resize-none",
-                      errors.complaint && "border-red-400",
+                      "text-sm",
+                      errors.vehicle_plate && "border-red-400",
                     )}
                   />
-                  {errors.complaint && (
+                  {errors.vehicle_plate && (
                     <p className="text-red-500 text-xs mt-1.5">
-                      {errors.complaint.message}
+                      {errors.vehicle_plate.message}
                     </p>
                   )}
+                </div>
+
+                <div>
+                  <label className={labelClass}>
+                    Keluhan / Kerusakan (opsional)
+                  </label>
+                  <textarea
+                    {...register("notes")}
+                    rows={3}
+                    placeholder="Ganti oli, rem bunyi, AC tidak dingin..."
+                    className={cn(inputClass, "text-sm resize-none")}
+                  />
                 </div>
 
                 <button

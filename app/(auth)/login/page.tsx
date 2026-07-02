@@ -60,7 +60,7 @@ export default function LoginPage() {
       else router.push(redirect);
     } catch (err) {
       if (err instanceof ApiRequestError)
-        setError(err.payload.error ?? "Email atau password salah");
+        setError(err.message || "Email atau password salah");
       else setError("Terjadi kesalahan, coba lagi");
     }
   };

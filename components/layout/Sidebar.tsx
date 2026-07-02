@@ -7,9 +7,13 @@ import {
   Store,
   CalendarClock,
   ClipboardList,
+  Users,
+  Car,
+  Wrench,
+  Receipt,
+  BarChart2,
   LogOut,
   ChevronRight,
-  Wrench,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +24,11 @@ const NAV_ITEMS = [
   { href: "/operator/workshops", label: "Workshop", icon: Store },
   { href: "/operator/slots", label: "Jadwal & Slot", icon: CalendarClock },
   { href: "/operator/orders", label: "Pesanan", icon: ClipboardList },
+  { href: "/operator/customers", label: "Pelanggan", icon: Users },
+  { href: "/operator/vehicles", label: "Kendaraan", icon: Car },
+  { href: "/operator/services", label: "Servis", icon: Wrench },
+  { href: "/operator/invoices", label: "Invoice", icon: Receipt },
+  { href: "/operator/laporan", label: "Laporan", icon: BarChart2 },
 ];
 
 interface SidebarProps {

@@ -52,9 +52,7 @@ function WorkshopCard({
       <div className="space-y-1.5">
         <div className="flex items-start gap-2 text-gray-500 text-sm">
           <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-          <span className="line-clamp-2">
-            {workshop.address}, {workshop.city}
-          </span>
+          <span className="line-clamp-2">{workshop.address}</span>
         </div>
         <div className="flex items-center gap-2 text-gray-500 text-sm">
           <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -89,10 +87,12 @@ export default function WorkshopsPage() {
   const [selected, setSelected] = useState<Workshop | null>(null);
   const [toDelete, setToDelete] = useState<Workshop | null>(null);
 
-  const { data: workshops = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["operator-workshops"],
-    queryFn: workshopApi.list,
+    queryFn: () => workshopApi.myWorkshops(),
   });
+
+  const workshops = data?.data ?? [];
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => workshopApi.delete(id),

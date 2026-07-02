@@ -9,7 +9,6 @@ import {
   Phone,
   Store,
   ChevronRight,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { workshopApi } from "@/lib/api";
@@ -44,9 +43,7 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
       <div className="space-y-1.5">
         <div className="flex items-start gap-2 text-gray-500 text-sm">
           <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-          <span className="line-clamp-2">
-            {workshop.address}, {workshop.city}
-          </span>
+          <span className="line-clamp-2">{workshop.address}</span>
         </div>
         <div className="flex items-center gap-2 text-gray-500 text-sm">
           <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -70,25 +67,22 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
 
 export default function WorkshopsPage() {
   const [search, setSearch] = useState("");
-  const [cityFilter, setCityFilter] = useState("");
   const [onlyActive, setOnlyActive] = useState(false);
 
-  const { data: workshops = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["workshops-public"],
-    queryFn: workshopApi.list,
+    queryFn: () => workshopApi.list(1, 50),
   });
 
-  const cities = [...new Set(workshops.map((w) => w.city))].sort();
-  const hasFilter = search || cityFilter || onlyActive;
+  const workshops = data?.data ?? [];
+  const hasFilter = search || onlyActive;
 
   const filtered = workshops.filter((w) => {
     const q = search.toLowerCase();
     return (
       (!search ||
         w.name.toLowerCase().includes(q) ||
-        w.city.toLowerCase().includes(q) ||
         w.address.toLowerCase().includes(q)) &&
-      (!cityFilter || w.city === cityFilter) &&
       (!onlyActive || w.is_active)
     );
   });
@@ -115,21 +109,6 @@ export default function WorkshopsPage() {
             placeholder="Cari nama bengkel atau kota..."
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0B1C3D] focus:border-transparent transition"
           />
-        </div>
-
-        <div className="relative">
-          <SlidersHorizontal className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-          <select
-            value={cityFilter}
-            onChange={(e) => setCityFilter(e.target.value)}
-            className="pl-10 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0B1C3D] transition appearance-none cursor-pointer min-w-[140px] bg-white text-gray-900">
-            <option value="">Semua Kota</option>
-            {cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
         </div>
 
         <button
@@ -163,7 +142,6 @@ export default function WorkshopsPage() {
           <button
             onClick={() => {
               setSearch("");
-              setCityFilter("");
               setOnlyActive(false);
             }}
             className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-semibold transition">
@@ -190,7 +168,6 @@ export default function WorkshopsPage() {
                 <button
                   onClick={() => {
                     setSearch("");
-                    setCityFilter("");
                     setOnlyActive(false);
                   }}
                   className="text-sm text-red-600 hover:text-red-700 font-semibold transition">

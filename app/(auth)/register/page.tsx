@@ -48,7 +48,7 @@ export default function RegisterPage() {
       else router.push("/workshops");
     } catch (err) {
       if (err instanceof ApiRequestError)
-        setError(err.payload.error ?? "Terjadi kesalahan saat mendaftar");
+        setError(err.message || "Terjadi kesalahan saat mendaftar");
       else setError("Terjadi kesalahan, coba lagi");
     }
   };

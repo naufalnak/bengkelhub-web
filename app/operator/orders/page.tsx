@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Search, ChevronDown, ChevronUp } from "lucide-react";
-import { workshopApi, orderApi } from "@/lib/api";
+import { workshopApi, orderApi, ApiRequestError } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLoader } from "@/components/ui/PageLoader";
@@ -11,21 +11,19 @@ import { Header } from "@/components/layout/Header";
 import { cn, inputClass, formatDateShort } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 import { orderStatusVariant, orderStatusLabel } from "@/lib/variants";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { Order, BookingStatus } from "@/lib/types";
 
 // ─── Status transitions ───────────────────────────────────────────────────────
 
-const NEXT_STATUSES: Partial<Record<OrderStatus, OrderStatus[]>> = {
+const NEXT_STATUSES: Partial<Record<BookingStatus, BookingStatus[]>> = {
   pending: ["confirmed", "cancelled"],
-  confirmed: ["in_progress", "cancelled"],
-  in_progress: ["done"],
+  confirmed: ["done", "cancelled"],
 };
 
-const ALL_STATUSES: (OrderStatus | "all")[] = [
+const ALL_STATUSES: (BookingStatus | "all")[] = [
   "all",
   "pending",
   "confirmed",
-  "in_progress",
   "done",
   "cancelled",
 ];
@@ -38,7 +36,7 @@ function StatusDropdown({
   updating,
 }: {
   order: Order;
-  onUpdate: (status: OrderStatus) => void;
+  onUpdate: (status: BookingStatus) => void;
   updating: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -101,7 +99,7 @@ function OrderRow({
 }: {
   order: Order;
   workshopName: string;
-  onUpdateStatus: (id: string, status: OrderStatus) => void;
+  onUpdateStatus: (id: string, status: BookingStatus) => void;
   updating: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -115,19 +113,21 @@ function OrderRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold text-gray-900 truncate">
-              {order.vehicle_type}
+              {order.vehicle_type} · {order.vehicle_plate}
             </p>
             <span className="text-gray-300 text-xs">·</span>
             <p className="text-xs text-gray-400 truncate">{workshopName}</p>
           </div>
-          <p className="text-xs text-gray-400 truncate mt-0.5">
-            {order.complaint}
-          </p>
+          {order.notes && (
+            <p className="text-xs text-gray-400 truncate mt-0.5">
+              {order.notes}
+            </p>
+          )}
         </div>
 
         <div className="hidden sm:block text-right flex-shrink-0">
           <p className="text-xs text-gray-500 font-medium">
-            {formatDateShort(order.booking_date)}
+            {order.slot ? formatDateShort(order.slot.date) : "—"}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">
             #{order.id.slice(0, 8)}
@@ -155,8 +155,8 @@ function OrderRow({
           {[
             { label: "ID Order", value: `#${order.id.slice(0, 8)}` },
             {
-              label: "Tanggal Booking",
-              value: formatDateShort(order.booking_date),
+              label: "Jadwal",
+              value: order.slot ? formatDateShort(order.slot.date) : "—",
             },
             { label: "Kendaraan", value: order.vehicle_type },
             { label: "Workshop", value: workshopName },
@@ -171,9 +171,9 @@ function OrderRow({
             </div>
           ))}
           <div className="col-span-2 sm:col-span-4 bg-white rounded-xl px-3 py-2.5 border border-gray-100">
-            <p className="text-xs text-gray-400">Keluhan</p>
+            <p className="text-xs text-gray-400">Keluhan / Catatan</p>
             <p className="text-sm text-gray-900 mt-0.5 leading-relaxed">
-              {order.complaint}
+              {order.notes || "—"}
             </p>
           </div>
         </div>
@@ -186,45 +186,52 @@ function OrderRow({
 
 export default function OrdersPage() {
   const queryClient = useQueryClient();
-  const [filterStatus, setFilterStatus] = useState<OrderStatus | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<BookingStatus | "all">(
+    "all",
+  );
   const [search, setSearch] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const { data: workshops = [], isLoading: loadingWorkshops } = useQuery({
+  const { data: workshopData, isLoading: loadingWorkshops } = useQuery({
     queryKey: ["operator-workshops"],
-    queryFn: workshopApi.list,
+    queryFn: () => workshopApi.myWorkshops(1, 50),
   });
+  const workshops = workshopData?.data ?? [];
 
   const { data: orders = [], isLoading: loadingOrders } = useQuery({
     queryKey: ["operator-orders", workshops.map((w) => w.id)],
     queryFn: async () => {
       if (workshops.length === 0) return [];
       const results = await Promise.all(
-        workshops.map((w) => orderApi.workshopOrders(w.id)),
+        workshops.map((w) => orderApi.workshopOrders(w.id, 1, 50)),
       );
-      return results.flat();
+      return results.flatMap((r) => r.data);
     },
     enabled: workshops.length > 0,
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       orderId,
       status,
     }: {
       orderId: string;
-      status: OrderStatus;
+      status: BookingStatus;
     }) => {
       setUpdatingId(orderId);
-      return orderApi.updateStatus(orderId, { status });
+      return orderApi.updateStatus(orderId, {
+        status: status as "confirmed" | "done" | "cancelled",
+      });
     },
-    onSuccess: (_, { status }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["operator-orders"] });
-      toast.success(`Status pesanan diperbarui`);
+      toast.success("Status pesanan diperbarui");
       setUpdatingId(null);
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Gagal memperbarui status");
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Gagal memperbarui status";
+      toast.error(message);
       setUpdatingId(null);
     },
   });
@@ -247,7 +254,8 @@ export default function OrdersPage() {
       const q = search.toLowerCase();
       return (
         o.vehicle_type.toLowerCase().includes(q) ||
-        o.complaint.toLowerCase().includes(q) ||
+        o.vehicle_plate.toLowerCase().includes(q) ||
+        o.notes.toLowerCase().includes(q) ||
         workshopMap[o.workshop_id]?.toLowerCase().includes(q)
       );
     })
@@ -302,7 +310,7 @@ export default function OrdersPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari kendaraan, keluhan, atau bengkel..."
+            placeholder="Cari kendaraan, plat, atau bengkel..."
             className={cn(inputClass, "pl-10")}
           />
         </div>

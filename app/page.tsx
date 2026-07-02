@@ -14,12 +14,13 @@ import { CTA } from "@/components/landing/cta";
 import { Footer } from "@/components/landing/footer";
 
 export default function LandingPage() {
-  const { data: workshops = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: ["workshops-public"],
-    queryFn: workshopApi.list,
+    queryFn: () => workshopApi.list(),
     staleTime: 1000 * 60 * 5,
   });
 
+  const workshops = data?.data ?? [];
   const activeWorkshops = workshops.filter((w) => w.is_active);
 
   return (

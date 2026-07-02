@@ -38,3 +38,31 @@ export const orderStatusLabel: Record<string, string> = {
   done: "Selesai",
   cancelled: "Dibatalkan",
 } as const;
+
+// Service status → badge variant mapping
+export const serviceStatusVariant: Record<string, keyof typeof badge> = {
+  pending: "warning",
+  in_progress: "purple",
+  done: "success",
+  cancelled: "default",
+} as const;
+
+export const serviceStatusLabel: Record<string, string> = {
+  pending: "Menunggu",
+  in_progress: "Dikerjakan",
+  done: "Selesai",
+  cancelled: "Dibatalkan",
+} as const;
+
+// Invoice status → badge variant mapping
+export const invoiceStatusVariant: Record<string, keyof typeof badge> = {
+  unpaid: "danger",
+  partial: "warning",
+  paid: "success",
+} as const;
+
+export const invoiceStatusLabel: Record<string, string> = {
+  unpaid: "Belum Bayar",
+  partial: "Sebagian",
+  paid: "Lunas",
+} as const;
