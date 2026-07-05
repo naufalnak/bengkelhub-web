@@ -7,6 +7,7 @@ import { Mail, X } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuthStore } from "@/store/auth";
+import { useUIStore } from "@/store/ui";
 
 function EmailVerificationBanner() {
   const { user } = useAuthStore();
@@ -44,7 +45,8 @@ export default function OperatorLayout({
 }) {
   const router = useRouter();
   const { isAuthenticated, role } = useAuthStore();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const closeSidebar = useUIStore((s) => s.closeSidebar);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -67,7 +69,7 @@ export default function OperatorLayout({
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         <EmailVerificationBanner />
         {children}

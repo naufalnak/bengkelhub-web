@@ -56,7 +56,7 @@ export function CTA() {
             </p>
             <div className="space-y-3">
               <Link
-                href="/register"
+                href="/daftar"
                 className="flex items-center justify-center gap-2 bg-[var(--navy)] text-white font-bold py-3 rounded-xl text-sm hover:bg-[var(--navy-light)] transition">
                 Daftar Gratis <ArrowRight className="w-4 h-4" />
               </Link>

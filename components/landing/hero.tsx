@@ -5,7 +5,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowRight, Search, Shield, Clock, CheckCircle, Wrench, Car } from "lucide-react";
+import {
+  ArrowRight,
+  Search,
+  Shield,
+  Clock,
+  CheckCircle,
+  Wrench,
+  Car,
+} from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { fadeUp, fadeIn, slideRight } from "./animations";
 
@@ -96,7 +104,7 @@ export function Hero({ totalWorkshops }: { totalWorkshops: number }) {
               {!isAuthenticated ? (
                 <>
                   <Link
-                    href="/register"
+                    href="/daftar"
                     className="inline-flex items-center gap-2 bg-white text-[#0B1C3D] font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition shadow-xl text-sm">
                     Daftar Gratis Sekarang <ArrowRight className="w-4 h-4" />
                   </Link>

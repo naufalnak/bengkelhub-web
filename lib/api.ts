@@ -360,6 +360,13 @@ export const invoiceApi = {
       body: payload,
     }),
 
+  // Generate Midtrans payment URL — kembalikan { payment_url, midtrans_order_id, invoice }
+  checkout: (invoiceId: string) =>
+    unwrap<{ payment_url: string; midtrans_order_id: string; invoice: Invoice }>(
+      `/invoices/${invoiceId}/checkout`,
+      { method: "POST" },
+    ),
+
   addPayment: (invoiceId: string, payload: AddPaymentPayload) =>
     unwrap<Payment>(`/invoices/${invoiceId}/payments`, {
       method: "POST",

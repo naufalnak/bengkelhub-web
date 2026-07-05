@@ -11,6 +11,7 @@ import {
   User,
   Receipt,
   Wallet,
+  ExternalLink,
 } from "lucide-react";
 import { invoiceApi, ApiRequestError } from "@/lib/api";
 import { AddPaymentModal } from "@/components/operator/AddPaymentModal";
@@ -21,6 +22,7 @@ import { Header } from "@/components/layout/Header";
 import {
   cn,
   btnPrimary,
+  btnOutline,
   formatCurrency,
   formatDateTime,
 } from "@/lib/utils";
@@ -83,6 +85,20 @@ export default function InvoiceDetailPage() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [confirmDeletePayment, setConfirmDeletePayment] =
     useState<Payment | null>(null);
+
+  const checkoutMutation = useMutation({
+    mutationFn: () => invoiceApi.checkout(id),
+    onSuccess: (res) => {
+      // Buka Midtrans payment page di tab baru
+      window.open(res.payment_url, "_blank", "noopener,noreferrer");
+      toast.success("Link pembayaran berhasil dibuat, halaman Midtrans dibuka di tab baru");
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Gagal membuat link pembayaran";
+      toast.error(message);
+    },
+  });
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ["invoice", id],
@@ -159,11 +175,24 @@ export default function InvoiceDetailPage() {
             </div>
 
             {invoice.status !== "paid" && (
-              <button
-                onClick={() => setPaymentModalOpen(true)}
-                className={cn(btnPrimary, "px-4 py-2.5 text-sm")}>
-                <Plus className="w-4 h-4" /> Catat Pembayaran
-              </button>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => checkoutMutation.mutate()}
+                  disabled={checkoutMutation.isPending}
+                  className={cn(btnOutline, "px-4 py-2.5 text-sm gap-2")}>
+                  {checkoutMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4" />
+                  )}
+                  Bayar Online
+                </button>
+                <button
+                  onClick={() => setPaymentModalOpen(true)}
+                  className={cn(btnPrimary, "px-4 py-2.5 text-sm")}>
+                  <Plus className="w-4 h-4" /> Catat Pembayaran
+                </button>
+              </div>
             )}
           </div>
 

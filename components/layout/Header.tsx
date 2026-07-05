@@ -2,6 +2,7 @@
 
 import { Bell, Menu } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
+import { useUIStore } from "@/store/ui";
 
 interface HeaderProps {
   title: string;
@@ -11,18 +12,17 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
   const user = useAuthStore((s) => s.user);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm flex-shrink-0">
       <div className="flex items-center gap-3">
         {/* Mobile hamburger */}
-        {onMenuClick && (
-          <button
-            onClick={onMenuClick}
-            className="md:hidden p-2 rounded-xl hover:bg-gray-100 transition -ml-1">
-            <Menu className="w-5 h-5 text-gray-500" />
-          </button>
-        )}
+        <button
+          onClick={onMenuClick ?? toggleSidebar}
+          className="md:hidden p-2 rounded-xl hover:bg-gray-100 transition -ml-1">
+          <Menu className="w-5 h-5 text-gray-500" />
+        </button>
         <div>
           <h1 className="text-lg font-bold text-[#0B1C3D]">{title}</h1>
           {subtitle && (

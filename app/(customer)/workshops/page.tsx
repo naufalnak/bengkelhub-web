@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import {
-  Search,
-  MapPin,
-  Phone,
-  Store,
-  ChevronRight,
-  X,
-} from "lucide-react";
+import { Search, MapPin, Phone, Store, ChevronRight, X } from "lucide-react";
 import { workshopApi } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -90,17 +83,24 @@ export default function WorkshopsPage() {
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="bg-[var(--navy)] rounded-2xl p-8 text-center">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+      <div className="bg-[var(--navy)] rounded-2xl px-6 py-10 sm:py-12 text-center relative overflow-hidden">
+        <div
+          className="absolute inset-0 pointer-events-none opacity-20"
+          style={{
+            backgroundImage: "radial-gradient(white 1px, transparent 1px)",
+            backgroundSize: "28px 28px",
+          }}
+        />
+        <h1 className="relative text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
           Temukan Bengkel <span className="text-red-400">Terpercaya</span>
         </h1>
-        <p className="text-blue-200 mt-2 text-sm max-w-md mx-auto">
+        <p className="relative text-blue-200 mt-2 text-sm max-w-md mx-auto">
           Booking servis kendaraan Anda dengan mudah dan cepat
         </p>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input

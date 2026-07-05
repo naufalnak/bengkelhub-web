@@ -76,7 +76,7 @@ export function Navbar() {
                   Masuk
                 </Link>
                 <Link
-                  href="/register"
+                  href="/daftar"
                   className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-sm">
                   Daftar
                 </Link>
@@ -165,7 +165,7 @@ export function Navbar() {
                   Masuk
                 </Link>
                 <Link
-                  href="/register"
+                  href="/daftar"
                   onClick={() => setMenuOpen(false)}
                   className="block px-3 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition text-center">
                   Daftar

@@ -241,9 +241,7 @@ export default function WorkshopDetailPage() {
                 </button>
                 <p className="text-xs text-gray-400 mt-3">
                   Belum punya akun?{" "}
-                  <Link
-                    href="/register"
-                    className="text-red-600 hover:underline">
+                  <Link href="/daftar" className="text-red-600 hover:underline">
                     Daftar
                   </Link>
                 </p>

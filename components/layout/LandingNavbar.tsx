@@ -8,8 +8,8 @@ import { useAuthStore } from "@/store/auth";
 
 const NAV_LINKS = [
   { label: "Beranda", href: "#hero" },
-  { label: "Cara Kerja", href: "#cara-kerja" },
   { label: "Layanan", href: "#layanan" },
+  { label: "Cara Kerja", href: "#cara-kerja" },
   { label: "Bengkel", href: "/workshops" },
 ];
 
@@ -40,9 +40,14 @@ export function LandingNavbar() {
           <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center shadow-md">
             <Wrench className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-white text-base">
-            Bengkel<span className="text-red-400">Hub</span>
-          </span>
+          <div>
+            <span className="font-bold text-white text-base leading-none block">
+              Bengkel<span className="text-red-400">Hub</span>
+            </span>
+            <span className="text-blue-300 text-[10px] leading-none">
+              Platform Bengkel Indonesia
+            </span>
+          </div>
         </Link>
 
         {/* Desktop nav */}
@@ -58,7 +63,7 @@ export function LandingNavbar() {
         </nav>
 
         {/* Desktop right */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2">
           {!isAuthenticated ? (
             <>
               <Link
@@ -68,8 +73,13 @@ export function LandingNavbar() {
               </Link>
               <Link
                 href="/register"
-                className="text-sm font-semibold bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl transition shadow-lg shadow-red-900/30">
-                Daftar
+                className="text-sm font-semibold bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl transition shadow-lg shadow-red-900/30">
+                Daftar Gratis
+              </Link>
+              <Link
+                href="/register?role=operator"
+                className="text-sm font-semibold border border-white/30 text-white px-4 py-2.5 rounded-xl hover:bg-white/10 transition">
+                Daftar Bengkel
               </Link>
             </>
           ) : role() === "operator" ? (
@@ -124,7 +134,13 @@ export function LandingNavbar() {
                     href="/register"
                     onClick={() => setMenuOpen(false)}
                     className="text-sm text-center py-2.5 bg-red-600 text-white rounded-xl font-semibold">
-                    Daftar
+                    Daftar Gratis
+                  </Link>
+                  <Link
+                    href="/register?role=operator"
+                    onClick={() => setMenuOpen(false)}
+                    className="text-sm text-center py-2.5 border border-white/30 text-white rounded-xl font-semibold">
+                    Daftar Bengkel
                   </Link>
                 </>
               ) : role() === "operator" ? (
