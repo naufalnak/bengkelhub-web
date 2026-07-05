@@ -12,8 +12,16 @@ import {
   Receipt,
   Wallet,
   ExternalLink,
+  Download,
+  MessageCircle,
 } from "lucide-react";
-import { invoiceApi, ApiRequestError } from "@/lib/api";
+import {
+  invoiceApi,
+  serviceApi,
+  workshopApi,
+  ApiRequestError,
+} from "@/lib/api";
+import { generateInvoicePdf } from "@/lib/pdf/generateInvoicePdf";
 import { AddPaymentModal } from "@/components/operator/AddPaymentModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Badge } from "@/components/ui/Badge";
@@ -85,17 +93,36 @@ export default function InvoiceDetailPage() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [confirmDeletePayment, setConfirmDeletePayment] =
     useState<Payment | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const checkoutMutation = useMutation({
     mutationFn: () => invoiceApi.checkout(id),
     onSuccess: (res) => {
       // Buka Midtrans payment page di tab baru
       window.open(res.payment_url, "_blank", "noopener,noreferrer");
-      toast.success("Link pembayaran berhasil dibuat, halaman Midtrans dibuka di tab baru");
+      toast.success(
+        "Link pembayaran berhasil dibuat, halaman Midtrans dibuka di tab baru",
+      );
     },
     onError: (err: unknown) => {
       const message =
-        err instanceof ApiRequestError ? err.message : "Gagal membuat link pembayaran";
+        err instanceof ApiRequestError
+          ? err.message
+          : "Gagal membuat link pembayaran";
+      toast.error(message);
+    },
+  });
+
+  const sendWhatsappMutation = useMutation({
+    mutationFn: () => invoiceApi.sendWhatsapp(id),
+    onSuccess: () => {
+      toast.success("Invoice berhasil dikirim ke WhatsApp customer");
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiRequestError
+          ? err.message
+          : "Gagal mengirim invoice ke WhatsApp";
       toast.error(message);
     },
   });
@@ -104,6 +131,37 @@ export default function InvoiceDetailPage() {
     queryKey: ["invoice", id],
     queryFn: () => invoiceApi.getById(id),
   });
+
+  // Data tambahan khusus untuk PDF (tidak ikut di-preload oleh GET /invoices/:id):
+  // nama/alamat bengkel & rincian item servis.
+  const { data: workshop } = useQuery({
+    queryKey: ["workshop", invoice?.workshop_id],
+    queryFn: () => workshopApi.getById(invoice!.workshop_id),
+    enabled: !!invoice?.workshop_id,
+  });
+
+  const { data: fullService } = useQuery({
+    queryKey: ["service", invoice?.service_id],
+    queryFn: () => serviceApi.getById(invoice!.service_id),
+    enabled: !!invoice?.service_id,
+  });
+
+  const handleDownloadPdf = async () => {
+    if (!invoice) return;
+    setGeneratingPdf(true);
+    try {
+      await generateInvoicePdf({
+        invoice,
+        workshop,
+        serviceItems: fullService?.service_items,
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal membuat PDF invoice");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const deletePaymentMutation = useMutation({
     mutationFn: (paymentId: string) => invoiceApi.deletePayment(id, paymentId),
@@ -115,7 +173,9 @@ export default function InvoiceDetailPage() {
     },
     onError: (err: unknown) => {
       const message =
-        err instanceof ApiRequestError ? err.message : "Gagal menghapus pembayaran";
+        err instanceof ApiRequestError
+          ? err.message
+          : "Gagal menghapus pembayaran";
       toast.error(message);
     },
   });
@@ -134,7 +194,10 @@ export default function InvoiceDetailPage() {
 
   return (
     <>
-      <Header title={invoice.invoice_no} subtitle="Detail invoice & pembayaran" />
+      <Header
+        title={invoice.invoice_no}
+        subtitle="Detail invoice & pembayaran"
+      />
 
       <div className="p-6 space-y-6 max-w-3xl">
         <button
@@ -162,7 +225,8 @@ export default function InvoiceDetailPage() {
                 {invoice.service?.vehicle && (
                   <p className="text-sm text-gray-500 mt-0.5">
                     {invoice.service.vehicle.plate_number} —{" "}
-                    {invoice.service.vehicle.brand} {invoice.service.vehicle.model}
+                    {invoice.service.vehicle.brand}{" "}
+                    {invoice.service.vehicle.model}
                   </p>
                 )}
                 {invoice.service?.vehicle?.customer && (
@@ -174,26 +238,50 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
 
-            {invoice.status !== "paid" && (
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => checkoutMutation.mutate()}
-                  disabled={checkoutMutation.isPending}
-                  className={cn(btnOutline, "px-4 py-2.5 text-sm gap-2")}>
-                  {checkoutMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ExternalLink className="w-4 h-4" />
-                  )}
-                  Bayar Online
-                </button>
-                <button
-                  onClick={() => setPaymentModalOpen(true)}
-                  className={cn(btnPrimary, "px-4 py-2.5 text-sm")}>
-                  <Plus className="w-4 h-4" /> Catat Pembayaran
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={handleDownloadPdf}
+                disabled={generatingPdf}
+                className={cn(btnOutline, "px-4 py-2.5 text-sm gap-2")}>
+                {generatingPdf ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Download PDF
+              </button>
+              <button
+                onClick={() => sendWhatsappMutation.mutate()}
+                disabled={sendWhatsappMutation.isPending}
+                className={cn(btnOutline, "px-4 py-2.5 text-sm gap-2")}>
+                {sendWhatsappMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <MessageCircle className="w-4 h-4" />
+                )}
+                Kirim WA
+              </button>
+              {invoice.status !== "paid" && (
+                <>
+                  <button
+                    onClick={() => checkoutMutation.mutate()}
+                    disabled={checkoutMutation.isPending}
+                    className={cn(btnOutline, "px-4 py-2.5 text-sm gap-2")}>
+                    {checkoutMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ExternalLink className="w-4 h-4" />
+                    )}
+                    Bayar Online
+                  </button>
+                  <button
+                    onClick={() => setPaymentModalOpen(true)}
+                    className={cn(btnPrimary, "px-4 py-2.5 text-sm")}>
+                    <Plus className="w-4 h-4" /> Catat Pembayaran
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Breakdown */}
@@ -295,7 +383,9 @@ export default function InvoiceDetailPage() {
         }
         title="Hapus Pembayaran"
         description={`Yakin ingin menghapus pembayaran sebesar ${
-          confirmDeletePayment ? formatCurrency(confirmDeletePayment.amount) : ""
+          confirmDeletePayment
+            ? formatCurrency(confirmDeletePayment.amount)
+            : ""
         }? Status invoice akan dihitung ulang.`}
         confirmLabel="Ya, Hapus"
         loading={deletePaymentMutation.isPending}

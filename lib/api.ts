@@ -362,10 +362,17 @@ export const invoiceApi = {
 
   // Generate Midtrans payment URL — kembalikan { payment_url, midtrans_order_id, invoice }
   checkout: (invoiceId: string) =>
-    unwrap<{ payment_url: string; midtrans_order_id: string; invoice: Invoice }>(
-      `/invoices/${invoiceId}/checkout`,
-      { method: "POST" },
-    ),
+    unwrap<{
+      payment_url: string;
+      midtrans_order_id: string;
+      invoice: Invoice;
+    }>(`/invoices/${invoiceId}/checkout`, { method: "POST" }),
+
+  // Kirim ringkasan invoice ke WA customer (via Fonnte)
+  sendWhatsapp: (invoiceId: string) =>
+    apiFetch<void>(`/invoices/${invoiceId}/send-whatsapp`, {
+      method: "POST",
+    }),
 
   addPayment: (invoiceId: string, payload: AddPaymentPayload) =>
     unwrap<Payment>(`/invoices/${invoiceId}/payments`, {
