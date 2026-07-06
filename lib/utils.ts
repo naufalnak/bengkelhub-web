@@ -39,6 +39,18 @@ export function formatDateTime(date: Date | string): string {
   }).format(new Date(date));
 }
 
+// Normalisasi nomor HP Indonesia (format lokal "0812...", "62812...", atau
+// yang sudah "+62812...") ke format E.164 ("+62812...") yang divalidasi
+// backend (validate:"e164"). Tanpa ini, nomor yang diketik user pakai awalan
+// "0" (paling umum di Indonesia) bakal DITOLAK backend saat register.
+export function toE164(phone: string): string {
+  const digits = phone.replace(/[^\d+]/g, "");
+  if (digits.startsWith("+")) return digits;
+  if (digits.startsWith("62")) return "+" + digits;
+  if (digits.startsWith("0")) return "+62" + digits.slice(1);
+  return "+62" + digits;
+}
+
 // ─── Shared class strings ─────────────────────────────────────────────────────
 
 export const inputClass =

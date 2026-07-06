@@ -262,6 +262,12 @@ export const orderApi = {
       method: "PATCH",
       body: payload,
     }),
+
+  // Operator: konversi booking jadi Customer + Vehicle + Service internal sekaligus
+  convertToService: (orderId: string) =>
+    unwrap<Service>(`/orders/${orderId}/convert-to-service`, {
+      method: "POST",
+    }),
 };
 
 // ─── Customer (internal, walk-in) ─────────────────────────────────────────────

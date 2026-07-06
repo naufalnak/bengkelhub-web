@@ -120,6 +120,7 @@ export interface Order {
   notes: string;
   vehicle_type: string;
   vehicle_plate: string;
+  service_id?: string | null;
   created_at: string;
   updated_at: string;
 }

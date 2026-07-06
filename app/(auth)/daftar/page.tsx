@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Eye, EyeOff, Loader2, Wrench, ArrowRight } from "lucide-react";
 import { authApi, ApiRequestError } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
+import { toE164 } from "@/lib/utils";
 
 const schema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
@@ -42,7 +43,11 @@ export default function DaftarPage() {
   const onSubmit = async (data: FormData) => {
     setError("");
     try {
-      const res = await authApi.register({ ...data, role: "customer" });
+      const res = await authApi.register({
+        ...data,
+        phone: toE164(data.phone),
+        role: "customer",
+      });
       login(res.token, res.user);
       router.push("/workshops");
     } catch (err) {

@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Search, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ClipboardList,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Wrench,
+  Loader2,
+} from "lucide-react";
 import { workshopApi, orderApi, ApiRequestError } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -96,12 +104,17 @@ function OrderRow({
   workshopName,
   onUpdateStatus,
   updating,
+  onConvertToService,
+  converting,
 }: {
   order: Order;
   workshopName: string;
   onUpdateStatus: (id: string, status: BookingStatus) => void;
   updating: boolean;
+  onConvertToService: (order: Order) => void;
+  converting: boolean;
 }) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -176,6 +189,36 @@ function OrderRow({
               {order.notes || "—"}
             </p>
           </div>
+
+          <div
+            className="col-span-2 sm:col-span-4"
+            onClick={(e) => e.stopPropagation()}>
+            {order.service_id ? (
+              <button
+                onClick={() =>
+                  router.push(`/operator/services/${order.service_id}`)
+                }
+                className="flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition mt-1">
+                <Wrench className="w-4 h-4" />
+                Sudah diproses jadi servis — lihat detail
+              </button>
+            ) : (
+              order.status !== "cancelled" &&
+              order.status !== "pending" && (
+                <button
+                  onClick={() => onConvertToService(order)}
+                  disabled={converting}
+                  className="flex items-center gap-2 text-sm font-semibold text-[var(--navy)] hover:opacity-80 transition mt-1 disabled:opacity-50">
+                  {converting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Wrench className="w-4 h-4" />
+                  )}
+                  Proses jadi Servis
+                </button>
+              )
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -185,12 +228,14 @@ function OrderRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<BookingStatus | "all">(
     "all",
   );
   const [search, setSearch] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
 
   const { data: workshopData, isLoading: loadingWorkshops } = useQuery({
     queryKey: ["operator-workshops"],
@@ -230,9 +275,32 @@ export default function OrdersPage() {
     },
     onError: (err: unknown) => {
       const message =
-        err instanceof ApiRequestError ? err.message : "Gagal memperbarui status";
+        err instanceof ApiRequestError
+          ? err.message
+          : "Gagal memperbarui status";
       toast.error(message);
       setUpdatingId(null);
+    },
+  });
+
+  const convertMutation = useMutation({
+    mutationFn: (order: Order) => {
+      setConvertingId(order.id);
+      return orderApi.convertToService(order.id);
+    },
+    onSuccess: (service) => {
+      queryClient.invalidateQueries({ queryKey: ["operator-orders"] });
+      toast.success("Booking berhasil diproses jadi servis");
+      setConvertingId(null);
+      router.push(`/operator/services/${service.id}`);
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof ApiRequestError
+          ? err.message
+          : "Gagal memproses booking jadi servis";
+      toast.error(message);
+      setConvertingId(null);
     },
   });
 
@@ -356,6 +424,8 @@ export default function OrdersPage() {
                     updateMutation.mutate({ orderId: id, status })
                   }
                   updating={updatingId === order.id}
+                  onConvertToService={(o) => convertMutation.mutate(o)}
+                  converting={convertingId === order.id}
                 />
               ))}
             </div>
