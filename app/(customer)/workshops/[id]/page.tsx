@@ -158,10 +158,22 @@ export default function WorkshopDetailPage() {
                     {workshop.is_active ? "Buka" : "Tutup"}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                  {workshop.address}
-                </div>
+                <a
+                  href={
+                    workshop.latitude != null && workshop.longitude != null
+                      ? `https://www.google.com/maps/search/?api=1&query=${workshop.latitude},${workshop.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          `${workshop.name} ${workshop.address}`,
+                        )}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-gray-500 hover:text-red-600 text-sm mt-1.5 transition group w-fit">
+                  <MapPin className="w-3.5 h-3.5 text-gray-400 group-hover:text-red-500 flex-shrink-0" />
+                  <span className="underline decoration-gray-300 group-hover:decoration-red-400 underline-offset-2">
+                    {workshop.address}
+                  </span>
+                </a>
               </div>
             </div>
 

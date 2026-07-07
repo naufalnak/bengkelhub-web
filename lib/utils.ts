@@ -39,6 +39,39 @@ export function formatDateTime(date: Date | string): string {
   }).format(new Date(date));
 }
 
+// Format jarak dari API (dalam km, desimal) jadi teks yang enak dibaca:
+// di bawah 1km pakai meter ("350 m"), di atasnya pakai km ("4,2 km").
+export function formatDistance(km: number): string {
+  if (km < 1) {
+    const meters = Math.round(km * 1000);
+    return `${meters} m`;
+  }
+  return `${km.toFixed(1).replace(".", ",")} km`;
+}
+
+// Coba ambil koordinat lat/lng dari berbagai format link Google Maps yang
+// biasa di-copy operator (dari address bar setelah buka lokasi, BUKAN short
+// link "maps.app.goo.gl" — itu gak bisa di-parse di browser karena
+// redirect-nya kejadian di server Google, bukan di URL-nya sendiri).
+export function extractLatLngFromGoogleMapsURL(
+  url: string,
+): { lat: number; lng: number } | null {
+  const patterns = [
+    /@(-?\d+\.\d+),(-?\d+\.\d+)/, // https://www.google.com/maps/@-6.175,106.865,15z
+    /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, // https://www.google.com/maps/place/.../!3d-6.175!4d106.865
+    /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/, // https://maps.google.com/?q=-6.175,106.865
+  ];
+  for (const re of patterns) {
+    const match = url.match(re);
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+  }
+  return null;
+}
+
 // Normalisasi nomor HP Indonesia (format lokal "0812...", "62812...", atau
 // yang sudah "+62812...") ke format E.164 ("+62812...") yang divalidasi
 // backend (validate:"e164"). Tanpa ini, nomor yang diketik user pakai awalan

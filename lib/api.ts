@@ -175,11 +175,12 @@ export const authApi = {
 // ─── Workshop ────────────────────────────────────────────────────────────────
 
 export const workshopApi = {
-  // Publik, gak perlu token
-  list: (page = 1, limit = 10) =>
+  // Publik, gak perlu token. lat/lng opsional — kalau diisi, hasil diurutkan
+  // dari yang paling dekat & tiap workshop dapat field distance_km.
+  list: (page = 1, limit = 10, coords?: { lat: number; lng: number }) =>
     unwrap<PaginatedData<Workshop>>("/workshops", {
       public: true,
-      query: { page, limit },
+      query: { page, limit, lat: coords?.lat, lng: coords?.lng },
     }),
 
   getById: (id: string) =>
@@ -268,6 +269,17 @@ export const orderApi = {
     unwrap<Service>(`/orders/${orderId}/convert-to-service`, {
       method: "POST",
     }),
+
+  // Customer: lihat invoice dari booking sendiri (kalau sudah ada)
+  getInvoice: (orderId: string) =>
+    unwrap<Invoice>(`/orders/${orderId}/invoice`),
+
+  // Customer: pilih "Bayar Online" — generate link Midtrans buat booking sendiri
+  checkoutInvoice: (orderId: string) =>
+    unwrap<{ payment_url: string; invoice: Invoice }>(
+      `/orders/${orderId}/invoice/checkout`,
+      { method: "POST" },
+    ),
 };
 
 // ─── Customer (internal, walk-in) ─────────────────────────────────────────────

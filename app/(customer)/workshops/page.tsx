@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Search, MapPin, Phone, Store, ChevronRight, X } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Phone,
+  Store,
+  ChevronRight,
+  X,
+  LocateFixed,
+  Navigation,
+} from "lucide-react";
 import { workshopApi } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCard } from "@/components/ui/PageLoader";
-import { cn } from "@/lib/utils";
+import { cn, formatDistance } from "@/lib/utils";
 import type { Workshop } from "@/lib/types";
 
 function WorkshopCard({ workshop }: { workshop: Workshop }) {
@@ -25,10 +34,16 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
           <h3 className="text-sm font-bold text-gray-900 truncate group-hover:text-red-600 transition">
             {workshop.name}
           </h3>
-          <div className="mt-1">
+          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
             <Badge variant={workshop.is_active ? "success" : "default"}>
               {workshop.is_active ? "Buka" : "Tutup"}
             </Badge>
+            {workshop.distance_km != null && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--navy)] bg-blue-50 px-2 py-0.5 rounded-full">
+                <Navigation className="w-3 h-3" />
+                {formatDistance(workshop.distance_km)}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -61,10 +76,63 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
 export default function WorkshopsPage() {
   const [search, setSearch] = useState("");
   const [onlyActive, setOnlyActive] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+  // State awal HARUS sama persis di server & client, makanya nggak boleh
+  // dicek dari `navigator` di sini (server nggak punya `navigator` sama
+  // sekali, jadi hasilnya bakal beda dari client → hydration mismatch).
+  // "loading" dipakai sebagai nilai netral "lagi ngecek" sebelum effect di
+  // bawah selesai jalan di client.
+  const [locationStatus, setLocationStatus] = useState<
+    "loading" | "granted" | "denied" | "unsupported"
+  >("loading");
+
+  // requestLocation dipakai buat tombol "coba lagi" manual (dipanggil dari
+  // event handler onClick, BUKAN dari effect) — setState sinkron di sini
+  // aman karena bukan di dalam body useEffect.
+  const requestLocation = () => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus("unsupported");
+      return;
+    }
+    setLocationStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationStatus("granted");
+      },
+      () => setLocationStatus("denied"),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  };
+
+  // Coba deteksi otomatis begitu halaman dibuka. Pengecekan `navigator` &
+  // pemanggilan geolocation SENGAJA ditaruh di effect (bukan lazy initializer
+  // useState) — effect cuma jalan di client SETELAH hydration selesai, jadi
+  // aman dari mismatch server/client. setState("unsupported") di sini juga
+  // aman meski "sinkron", karena statusnya emang baru bisa diketahui di
+  // client, bukan sesuatu yang bisa dihitung duluan di render pertama.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocationStatus("unsupported");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationStatus("granted");
+      },
+      () => setLocationStatus("denied"),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["workshops-public"],
-    queryFn: () => workshopApi.list(1, 50),
+    queryKey: ["workshops-public", coords],
+    queryFn: () => workshopApi.list(1, 50, coords ?? undefined),
   });
 
   const workshops = data?.data ?? [];
@@ -128,6 +196,28 @@ export default function WorkshopsPage() {
           Buka Sekarang
         </button>
       </div>
+
+      {/* Location status banner */}
+      {locationStatus === "loading" && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+          <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
+          Mendeteksi lokasi Anda...
+        </div>
+      )}
+      {locationStatus === "granted" && coords && (
+        <div className="flex items-center gap-2 text-xs text-[var(--navy)] bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+          <Navigation className="w-3.5 h-3.5" />
+          Menampilkan bengkel dari yang paling dekat dengan lokasi Anda
+        </div>
+      )}
+      {locationStatus === "denied" && (
+        <button
+          onClick={requestLocation}
+          className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 transition w-full sm:w-auto">
+          <LocateFixed className="w-3.5 h-3.5" />
+          Aktifkan lokasi biar lihat bengkel terdekat
+        </button>
+      )}
 
       {/* Result info */}
       {hasFilter && (

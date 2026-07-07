@@ -40,6 +40,10 @@ export interface Workshop {
   description: string;
   address: string;
   phone: string;
+  qris_image_url?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  distance_km?: number | null; // cuma keisi kalau request nyertain ?lat=&lng=
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -50,6 +54,8 @@ export interface CreateWorkshopPayload {
   description?: string;
   address: string;
   phone?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UpdateWorkshopPayload {
@@ -57,6 +63,9 @@ export interface UpdateWorkshopPayload {
   description?: string;
   address?: string;
   phone?: string;
+  qris_image_url?: string;
+  latitude?: number;
+  longitude?: number;
   is_active?: boolean;
 }
 
