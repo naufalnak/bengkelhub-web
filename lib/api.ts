@@ -28,6 +28,9 @@ import type {
   UpdateVehiclePayload,
   Service,
   ServiceItem,
+  ServiceOffering,
+  CreateServiceOfferingPayload,
+  UpdateServiceOfferingPayload,
   CreateServicePayload,
   UpdateServicePayload,
   AddServiceItemPayload,
@@ -280,6 +283,31 @@ export const orderApi = {
       `/orders/${orderId}/invoice/checkout`,
       { method: "POST" },
     ),
+};
+
+// ─── Service Offering (menu layanan yang bengkel tawarkan) ────────────────────
+
+export const serviceOfferingApi = {
+  // Publik — dipakai di halaman detail bengkel (customer) & halaman kelola (operator)
+  list: (workshopId: string) =>
+    unwrap<ServiceOffering[]>(`/workshops/${workshopId}/services-offered`, {
+      public: true,
+    }),
+
+  create: (workshopId: string, payload: CreateServiceOfferingPayload) =>
+    unwrap<ServiceOffering>(`/workshops/${workshopId}/services-offered`, {
+      method: "POST",
+      body: payload,
+    }),
+
+  update: (id: string, payload: UpdateServiceOfferingPayload) =>
+    unwrap<ServiceOffering>(`/service-offerings/${id}`, {
+      method: "PATCH",
+      body: payload,
+    }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/service-offerings/${id}`, { method: "DELETE" }),
 };
 
 // ─── Customer (internal, walk-in) ─────────────────────────────────────────────

@@ -224,6 +224,31 @@ export interface ServiceItem {
   created_at: string;
 }
 
+// ServiceOffering adalah daftar layanan yang bengkel TAWARKAN (semacam menu,
+// mis. "Ganti Oli", "Servis AC") — beda dengan Service yang merupakan
+// pekerjaan servis aktual untuk kendaraan tertentu.
+export interface ServiceOffering {
+  id: string;
+  workshop_id: string;
+  name: string;
+  description: string;
+  estimated_price: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateServiceOfferingPayload {
+  name: string;
+  description?: string;
+  estimated_price?: number | null;
+}
+
+export interface UpdateServiceOfferingPayload {
+  name?: string;
+  description?: string;
+  estimated_price?: number | null;
+}
+
 export interface Service {
   id: string;
   workshop_id: string;

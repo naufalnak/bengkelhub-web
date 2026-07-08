@@ -16,10 +16,17 @@ import {
   Loader2,
   CheckCircle2,
   Wrench,
+  Tag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { workshopApi, slotApi, orderApi, ApiRequestError } from "@/lib/api";
+import {
+  workshopApi,
+  slotApi,
+  orderApi,
+  serviceOfferingApi,
+  ApiRequestError,
+} from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { Badge } from "@/components/ui/Badge";
 import { SectionLoader } from "@/components/ui/PageLoader";
@@ -29,6 +36,7 @@ import {
   labelClass,
   btnPrimary,
   btnOutline,
+  formatCurrency,
 } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 
@@ -55,6 +63,11 @@ export default function WorkshopDetailPage() {
   const { data: slots = [], isLoading: loadingSlots } = useQuery({
     queryKey: ["slots-public", id],
     queryFn: () => slotApi.listByWorkshop(id, true),
+  });
+
+  const { data: offerings = [], isLoading: loadingOfferings } = useQuery({
+    queryKey: ["service-offerings", id],
+    queryFn: () => serviceOfferingApi.list(id),
   });
 
   const sortedSlots = [...slots].sort(
@@ -221,6 +234,47 @@ export default function WorkshopDetailPage() {
                     <div className="flex items-center gap-1 text-gray-400 text-xs">
                       <Users className="w-3 h-3" />
                       {slot.remaining}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Layanan yang ditawarkan */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <Wrench className="w-4 h-4 text-[var(--navy)]" /> Layanan
+            </h2>
+            {loadingOfferings ? (
+              <SectionLoader />
+            ) : offerings.length === 0 ? (
+              <p className="text-gray-400 text-sm">
+                Bengkel ini belum mencantumkan daftar layanan
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {offerings.map((o) => (
+                  <div
+                    key={o.id}
+                    className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                    <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                      <Tag className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {o.name}
+                      </p>
+                      {o.description && (
+                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                          {o.description}
+                        </p>
+                      )}
+                      {o.estimated_price != null && (
+                        <p className="text-xs font-semibold text-[var(--navy)] mt-1">
+                          Mulai {formatCurrency(o.estimated_price)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}

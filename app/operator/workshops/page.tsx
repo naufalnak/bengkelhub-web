@@ -10,9 +10,11 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  Wrench,
 } from "lucide-react";
 import { workshopApi } from "@/lib/api";
 import { WorkshopModal } from "@/components/operator/WorkshopModal";
+import { ServiceOfferingModal } from "@/components/operator/ServiceOfferingModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonCard } from "@/components/ui/PageLoader";
@@ -26,10 +28,12 @@ function WorkshopCard({
   workshop,
   onEdit,
   onDelete,
+  onManageServices,
 }: {
   workshop: Workshop;
   onEdit: () => void;
   onDelete: () => void;
+  onManageServices: () => void;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col gap-4 hover:shadow-md transition">
@@ -66,6 +70,11 @@ function WorkshopCard({
 
       <div className="flex gap-2 pt-1 border-t border-gray-100">
         <button
+          onClick={onManageServices}
+          className={cn(btnOutline, "flex-1 py-2 text-xs")}>
+          <Wrench className="w-3.5 h-3.5" /> Layanan
+        </button>
+        <button
           onClick={onEdit}
           className={cn(btnOutline, "flex-1 py-2 text-xs")}>
           <Pencil className="w-3.5 h-3.5" /> Edit
@@ -86,6 +95,7 @@ export default function WorkshopsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selected, setSelected] = useState<Workshop | null>(null);
   const [toDelete, setToDelete] = useState<Workshop | null>(null);
+  const [servicesFor, setServicesFor] = useState<Workshop | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["operator-workshops"],
@@ -163,6 +173,7 @@ export default function WorkshopsPage() {
                   setToDelete(w);
                   setConfirmOpen(true);
                 }}
+                onManageServices={() => setServicesFor(w)}
               />
             ))}
           </div>
@@ -184,6 +195,15 @@ export default function WorkshopsPage() {
         confirmLabel="Ya, Hapus"
         loading={deleteMutation.isPending}
       />
+
+      {servicesFor && (
+        <ServiceOfferingModal
+          open={!!servicesFor}
+          onClose={() => setServicesFor(null)}
+          workshopId={servicesFor.id}
+          workshopName={servicesFor.name}
+        />
+      )}
     </>
   );
 }
