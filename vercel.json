@@ -3,6 +3,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "env": {
-    "NEXT_PUBLIC_API_URL": "@bengkelhub_api_url"
+    "NEXT_PUBLIC_API_URL": "https://broadband-manifesto-revenue.ngrok-free.dev/api/v1"
   }
 }
